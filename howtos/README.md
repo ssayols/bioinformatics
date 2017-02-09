@@ -173,7 +173,7 @@ This script will loop over the BAM files in a directori, and extend 3'end of the
 #!/bin/bash
 SIZE=$1
 BASEDIR=./mapped
-EXEC=/fsimb/groups/imb-bioinfocf/common-tools/dependencies_deb7
+EXEC=/opt
 REF=./mm9.chrom.sizes
 
 for f in ${BASEDIR}/*.bam
@@ -199,21 +199,22 @@ done
 This is the STAR command to generate an index file from a fasta reference:
 
 ```bash
-    STAR --runMode genomeGenerate 
-         --genomeDir ./ 
-         --genomeFastaFiles /fsimb/groups/imb-bioinfocf/common-data/igenomes_reference/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa 
-         --runThreadN 12 
-         --sjdbGTFfile /fsimb/groups/imb-bioinfocf/common-data/igenomes_reference/Homo_sapiens/UCSC/hg19/Annotation/Genes/genes.gtf 
+    STAR --runMode genomeGenerate  \
+         --genomeDir ./  \
+         --genomeFastaFiles /igenomes_reference/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa \
+         --runThreadN 12 \
+         --sjdbGTFfile /igenomes_reference/Homo_sapiens/UCSC/hg19/Annotation/Genes/genes.gtf \
          --sjdbOverhang 50
 ```
 
-Newer versions of STAR (since 2.4.x) can produce indexes without the read length parameter while generating the index. Though it has to be supplied when running STAR alignment. A template script is available here:
+Newer versions of STAR (since 2.4.x) can produce indexes without the read length parameter while generating the index. Though it has to be supplied when running STAR alignment.
 
 ```bash
-    [/fsimb/groups/imb-bioinfocf/common-data/star_genomes/generator]
-    generate_StarIndex_template.sh
-    
-    STAR --runMode genomeGenerate --genomeDir ${INDEXFOLDER} --genomeFastaFiles ${GENOME} --runThreadN ${THREADS} --outTmpDir ${TMPDIR}/indexing/
+    STAR --runMode genomeGenerate     \
+         --genomeDir ${INDEXFOLDER}   \
+         --genomeFastaFiles ${GENOME} \
+         --runThreadN ${THREADS}      \
+         --outTmpDir ${TMPDIR}/indexing/
 ```
 
 ## Merge BAM files
@@ -231,8 +232,8 @@ It consists of 3 steps:
 **Source**
 ```bash
 #!/bin/bash
-SAMTOOLS=/fsimb/groups/imb-bioinfocf/common-tools/dependencies/samtools/1.3/samtools
-INPUTDIR=/fsimb/groups/imb-bioinfocf/projects/jgu/xxx/with_UMIs/mapped
+SAMTOOLS=/opt/samtools/1.3/samtools
+INPUTDIR=/projects/xxx/with_UMIs/mapped
 SAMPLES=(sample_??_WT_0_2h sample_??_WT_24h sample_??_ERC)
 SEED=666
 
@@ -289,10 +290,10 @@ To queue it into LSF, the for loop has to be moved into a master script that wil
 
 ```bash
 #!/bin/bash
-UCSC=/fsimb/groups/imb-bioinfocf/common-tools/dependencies/ucsc/latest/
-INPUTDIR=/fsimb/groups/imb-bioinfocf/projects/jgu/sample_01_kaiser_RNA-Seq/with_UMIs/tracks
+UCSC=/opt/ucsc/latest/
+INPUTDIR=/projects/xxx/with_UMIs/tracks
 SAMPLES=(sample_01_??_WT_0_2h sample_01_??_WT_24h sample_01_??_ERC)
-CHRSIZES=/fsimb/groups/imb-bioinfocf/projects/jgu/sample_01_kaiser_RNA-Seq/with_UMIs/chr.sizes  # got with: samtools idxstats sample.bam | cut -f1-2 > ./chr.sizes
+CHRSIZES=/projects/xxx/with_UMIs/chr.sizes  # got it with: samtools idxstats sample.bam | cut -f1-2 > ./chr.sizes
 
 cd $INPUTDIR
 
@@ -331,7 +332,7 @@ ssayolsp@annotation$ index_gff --index Drosophila_melanogaster.BDGP6.83.gff3 ind
 **Run MISO**
 ```bash
 #!/bin/bash
-PROJECT=/fsimb/groups/imb-buttergr/=EVOREG/drosophila_Development/modencode
+PROJECT=/project/xxx
 ANNOTATION=${PROJECT}/annotation/indexed.BDGP6.83.gff3
 CORES=8
 READLEN=36
@@ -341,7 +342,7 @@ for f in ${PROJECT}/mapped/*.sorted.bam; do
     F=${F%_accepted_hits.sorted.bam}
     OUT=${PROJECT}/results/isoform-quantification/${F}
 
-    L1="source /fsimb/groups/imb-bioinfocf/common-tools/dependencies/miso/latest/env.sh" 
+    L1="source /opt/miso/latest/env.sh" 
     L2="miso --run $ANNOTATION $f --output-dir $OUT --read-len $READLEN -p $CORES"
     L3="miso_pack --pack $OUT"
     L4="summarize_miso --summarize-samples $OUT $OUT"
@@ -398,14 +399,14 @@ ssayolsp@results$ miso_zip --uncompress mydata.misozip uncompressed/
 ```bash
 #!/bin/bash
 # run meme-chip with the same arguments as calling it from the http://meme-suite.org/
-PROJECT=/fsimb/groups/imb-bioinfocf/projects/butter/imb_butter_2016_02_bluhm_ChIPseq
+PROJECT=/projects/xxx
 OUTDIR=${PROJECT}/GSE51142/results/meme
 INDIR=${PROJECT}/GSE51142/results/macs2
-BEDTOOLS=/fsimb/groups/imb-bioinfocf/common-tools/dependencies/BEDTools/latest/bin/bedtools
-MEME=/fsimb/groups/imb-bioinfocf/common-tools/dependencies/meme/latest/bin/meme-chip
-REF=/fsimb/groups/imb-bioinfocf/imb-genomes/homo_sapiens/ensembl/grch38/canonical/genome/Homo_sapiens.GRCh38.dna.primary_assembly.fa
-MEMEHUMANDB=/fsimb/groups/imb-bioinfocf/common-tools/dependencies/meme/motif_databases/HUMAN/HOCOMOCOv10_HUMAN_mono_meme_format.meme
-MEMEJASPARDB=/fsimb/groups/imb-bioinfocf/common-tools/dependencies/meme/motif_databases/JASPAR/JASPAR_CORE_2016_vertebrates.meme
+BEDTOOLS=/opt/BEDTools/latest/bin/bedtools
+MEME=/opt/meme/latest/bin/meme-chip
+REF=/igenomes/homo_sapiens/ensembl/grch38/canonical/genome/Homo_sapiens.GRCh38.dna.primary_assembly.fa
+MEMEHUMANDB=/opt/meme/motif_databases/HUMAN/HOCOMOCOv10_HUMAN_mono_meme_format.meme
+MEMEJASPARDB=/opt/meme/motif_databases/JASPAR/JASPAR_CORE_2016_vertebrates.meme
 
 for f in ${INDIR}/*.narrowPeak; do
     if [ ! -e $OUTDIR ]; then
@@ -426,7 +427,7 @@ library(rGADEM)
 library(GenomicRanges)
 library(BSgenome.Hsapiens.UCSC.hg38)
 
-PROJECT <- "/fsimb/groups/imb-bioinfocf/projects/butter/imb_butter_2016_02_bluhm_ChIPseq/"
+PROJECT <- "/projects/xxx"
 TOP <- 50   # take only top peaks (values >50 usually make GADEM cracsh with segfault)
 
 # read in the peaks and call the motif discovery tool
@@ -461,8 +462,8 @@ Remember to change the thresholds (-m), genome size (-g), cutoff (-q) and add --
 
 ```bash
 #!/bin/bash
-MACS2=/fsimb/groups/imb-bioinfocf/common-tools/dependencies/macs2/latest
-PROJECT=/fsimb/groups/imb-bioinfocf/projects/cfb_internal/rcourse/chipseq-workshop/data
+MACS2=/opt/macs2/latest
+PROJECT=/projects/xxx
 TARGETS=${PROJECT}/scripts/targets.txt
 tail -n +2 $TARGETS | while read -r TARGET; do
     IP=$(       echo $TARGET | cut -f1 -d" ")
@@ -503,9 +504,9 @@ SICER is potentially good to call broad peaks, like H3K27me3 histone marks. Reme
 
 ```bash
 #!/bin/bash
-BEDTOOLS=/fsimb/groups/imb-bioinfocf/common-tools/dependencies/BEDTools/2.25.0/bin
-SICER=/fsimb/groups/imb-bioinfocf/common-tools/dependencies/sicer/1.1
-PROJECT=/fsimb/groups/imb-bioinfocf/projects/cfb_internal/rcourse/chipseq-workshop/data
+BEDTOOLS=/opt/BEDTools/2.25.0/bin
+SICER=/opt/sicer/1.1
+PROJECT=/projects/xxx
 TARGETS=${PROJECT}/peakcalling_SICER/targets.txt
 
 # SICER parms
