@@ -1,6 +1,6 @@
 ## Table of Contents
 
-* [Editing Convert BAM to BigWig](#editing-convert-bam-to-bigwig)
+* [Convert BAM to BigWig](#editing-convert-bam-to-bigwig)
 * [Deduplicate UMIs](#deduplicate-umis)
    * [Merge.pl](#mergepl)
    * [Loop over the input files and run the tasks on LSF](#loop-over-the-input-files-and-run-the-tasks-on-lsf)
@@ -20,7 +20,7 @@
    * [SICER](#sicer)
 * [Retrieve chromosome sizes](#retrieve-chromosome-sizes)
 
-## Editing Convert BAM to BigWig
+## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
 
 To queue it into LSF, the for loop has to be moved into a master script that will queue with bsub this script passing the BAM file to be processed as a parameter.
