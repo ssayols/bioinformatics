@@ -2,8 +2,6 @@
 
 * [Convert BAM to BigWig](#editing-convert-bam-to-bigwig)
 * [Deduplicate UMIs](#deduplicate-umis)
-   * [Merge.pl](#mergepl)
-   * [Loop over the input files and run the tasks on LSF](#loop-over-the-input-files-and-run-the-tasks-on-lsf)
 * [Downsample](#downsample)
    * [Fastq](#fastq)
    * [BAM](#bam)
@@ -26,12 +24,14 @@ This script will loop over the BAM files in a directori, and convert them to Big
 To queue it into LSF, the for loop has to be moved into a master script that will queue with bsub this script passing the BAM file to be processed as a parameter.
 
 **Requirements**
-*bedtools
-*Picard tools
-*bedGraphToBigWig from the UCSC Genome Browser tools
-*The cromosome sizes, which can be retrieved from the UCSC Genome Browser tools with the fetchChromSizes. Alternatively, samtools idxstats sample.bam | cut -f1-2 > ./chr.sizes
+
+* bedtools
+* Picard tools
+* bedGraphToBigWig from the UCSC Genome Browser tools
+* The cromosome sizes, which can be retrieved from the UCSC Genome Browser tools with the fetchChromSizes. Alternatively, samtools idxstats sample.bam | cut -f1-2 > ./chr.sizes
 
 **Source**
+
 ```bash
 #!/bin/bash
 BEDTOOLS=/opt/bedtools-2.17.0/bin
@@ -55,7 +55,8 @@ done
 ## Deduplicate UMIs
 Suposing we have the UMIs and the sequences demultiplexed in separate reads (fastq files).
 
-### Merge.pl
+**Merge.pl**
+
 Read both files, and write output in the format:
 
 <pre>
@@ -75,9 +76,10 @@ while(!eof(FQ) and !eof(UMI)) {
     $q1=eval join("+", map { (ord($_) - 33) > 30 || 0 } split //, $fq[3]);
     $q2=eval join("+", map { ord($_) } split //, $fq[3]);
     print join "\t", ($umi[1], $fq[1], $q1, $q2, $fq[0], $fq[2], $fq[3]), "\n";
-}```
+}
+```
 
-### Split.pl
+**Split.pl**
 Split the *reversely* sorted result of Merge.pl
 
 ```perl
@@ -92,7 +94,7 @@ while($l = <>) {
 }
 ```
 
-### Loop over the input files and run the tasks on LSF
+**Loop over the input files and run the tasks on LSF**
 
 ```perl
 #!/bin/bash
@@ -121,7 +123,8 @@ $ find . -name "*.fastq.gz" | parallel -j 4 PROCESS
 This script will loop over the BAM files in a directory and downsample them according to the percentage described in the 3rd column of a csv file.
 
 **Requirements**
-*samtools (0.1.18 has a known bug when downsampling with >50% likelihood)
+
+* samtools (0.1.18 has a known bug when downsampling with >50% likelihood)
 
 **Source**
 
@@ -160,9 +163,10 @@ done
 This script will loop over the BAM files in a directori, and extend 3'end of the reads for $1 bp in order to match the average library's insert size and improve the peak calling.
 
 **Requirements**
-*bedtools
-*samtools
-*The cromosome sizes, which can be retrieved from the UCSC Genome Browser tools with the fetchChromSizes
+
+* bedtools
+* samtools
+* The cromosome sizes, which can be retrieved from the UCSC Genome Browser tools with the fetchChromSizes
 
 **Source**
 ```bash
@@ -277,10 +281,12 @@ This script takes the bigwig tracks from several replicates and merges them toge
 To queue it into LSF, the for loop has to be moved into a master script that will queue with bsub this script passing the BAM file to be processed as a parameter.
 
 **Requirements**
-*bedGraphToBigWig from the UCSC Genome Browser tools
-*The cromosome sizes, which can be retrieved from the UCSC Genome Browser tools with the fetchChromSizes. Alternatively, samtools idxstats sample.bam | cut -f1-2 > ./chr.sizes
+
+* bedGraphToBigWig from the UCSC Genome Browser tools
+* The cromosome sizes, which can be retrieved from the UCSC Genome Browser tools with the fetchChromSizes. Alternatively, samtools idxstats sample.bam | cut -f1-2 > ./chr.sizes
 
 **Source**
+
 ```bash
 #!/bin/bash
 UCSC=/fsimb/groups/imb-bioinfocf/common-tools/dependencies/ucsc/latest/
@@ -472,7 +478,6 @@ tail -n +2 $TARGETS | while read -r TARGET; do
     L3="mv $IPname* ${PROJECT}/results/macs2"
     echo "$L1 && $L2 && $L3" | bsub -n1 -W1:00 -app Reserve2G -J $IPname -o ${IPname}.out -e ${IPname}.err
 done
-
 ```
 
 ### SICER
@@ -534,9 +539,12 @@ Use the UCSC toolkit from the deps tree.
 The chromosome sizes are often used to generate tracks from a bam file.
 
 **Requirements**
-*ucsc tools
+
+* ucsc tools
+* or, alternatively, a mysql client
 
 **Source**
+
 ```bash
 $ fetchChromSizes hg18 > hg18.chrom.sizes
 ```
