@@ -1,6 +1,7 @@
 # A collection of R snippets
 
-## TOC
+Table of Contents
+=================
 
    * [Collection of R snippets](#collection-of-r-snippets)
       * [Array analysis](#array-analysis)
