@@ -1,6 +1,6 @@
 ## Table of Contents
 
-* [Convert BAM to BigWig](#editing-convert-bam-to-bigwig)
+* [Convert BAM to BigWig](#convert-bam-to-bigwig)
 * [Deduplicate UMIs](#deduplicate-umis)
 * [Downsample](#downsample)
    * [Fastq](#fastq)
