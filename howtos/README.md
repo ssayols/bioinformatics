@@ -17,6 +17,7 @@
    * [MACS2](#macs2)
    * [SICER](#sicer)
 * [Retrieve chromosome sizes](#retrieve-chromosome-sizes)
+* [Submit jobs to random machines in the cluster](#submit-jobs-to-random-machines-in-the-cluster)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -555,4 +556,27 @@ Or:
 ```bash
 $ mysql --user=genome --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from hg19.chromInfo"  > hg19.genome
 ```
+
+## Submit jobs to random machines in the cluster
+
+If you have high demanding IO jobs, it's advisable to distribute the load across different machines. Otherwise, the system could become unusable.
+
+```bash
+MACHINES=(imbc1 imbc4 imbc5)
+echo "zcat x1.fastq.gz | fastx_clipper -a TGGAATTCTCGGGTGCCAAGG -l 15 | gzip > x1.trimmed.fastq.gz" | \
+  bsub -J fastx -W5:00 -app Reserve1G -n1 -m ${MACHINES[$((RANDOM % 3))]}
+echo "zcat x2.fastq.gz | fastx_clipper -a TGGAATTCTCGGGTGCCAAGG -l 15 | gzip > x2.trimmed.fastq.gz" | \
+  bsub -J fastx -W5:00 -app Reserve1G -n1 -m ${MACHINES[$((RANDOM % 3))]}
+echo "zcat x3.fastq.gz | fastx_clipper -a TGGAATTCTCGGGTGCCAAGG -l 15 | gzip > x3.trimmed.fastq.gz" | \
+  bsub -J fastx -W5:00 -app Reserve1G -n1 -m ${MACHINES[$((RANDOM % 3))]}
+echo "zcat x4.fastq.gz | fastx_clipper -a TGGAATTCTCGGGTGCCAAGG -l 15 | gzip > x4.trimmed.fastq.gz" | \
+  bsub -J fastx -W5:00 -app Reserve1G -n1 -m ${MACHINES[$((RANDOM % 3))]}
+echo "zcat x5.fastq.gz | fastx_clipper -a TGGAATTCTCGGGTGCCAAGG -l 15 | gzip > x5.trimmed.fastq.gz" | \
+  bsub -J fastx -W5:00 -app Reserve1G -n1 -m ${MACHINES[$((RANDOM % 3))]}
+```
+
+Please remind that's not the best strategy for high IO load. That should go in combination with:
+
+* using the scratch disks
+* LSF doesn't let you book for IO resources. Thus, limit the number of concurrent tasks
 
