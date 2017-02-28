@@ -17,6 +17,7 @@
 * [ChIP-seq workflows](#chip-seq-workflows)
    * [QC](#qc)
       * [FRIP](#frip)
+   * [Get blacklisted regions from UCSC](#get-blacklisted-regions-from-ucsc)
    * [Differential binding analysis](#differential-binding-analysis)
       * [Prepare the targets file](#prepare-the-targets-file)
       * [Prepare the contrasts file](#prepare-the-contrasts-file)
@@ -350,6 +351,21 @@ x <- mclapply(f,function(f) {
 },mc.cores=CORES)
 
 write.csv(x,file="./qc/frip.csv",row.names=F)
+```
+
+### Get blacklisted regions from UCSC
+
+There are two main tables in UCSC which contain info about abnormal high signal in ChIP-like experiments. They're both derived from the Encode project:
+
+```R
+library(rtracklayer)
+library(GenomicRanges)
+
+mySession <- browserSession("UCSC")
+genome(mySession) <- "hg19"
+blcklst <- rbind(getTable(ucscTableQuery(mySession, table="wgEncodeDacMapabilityConsensusExcludable")),
+                 getTable(ucscTableQuery(mySession, table="wgEncodeDukeMapabilityRegionsExcludable")))
+                 blcklst <- with(blcklst, GRanges(chrom, IRanges(chromStart, chromEnd)))
 ```
 
 ### Differential binding analysis
