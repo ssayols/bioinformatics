@@ -365,7 +365,7 @@ mySession <- browserSession("UCSC")
 genome(mySession) <- "hg19"
 blcklst <- rbind(getTable(ucscTableQuery(mySession, table="wgEncodeDacMapabilityConsensusExcludable")),
                  getTable(ucscTableQuery(mySession, table="wgEncodeDukeMapabilityRegionsExcludable")))
-                 blcklst <- with(blcklst, GRanges(chrom, IRanges(chromStart, chromEnd)))
+blcklst <- with(blcklst, GRanges(chrom, IRanges(chromStart, chromEnd)))
 ```
 
 ### Differential binding analysis
