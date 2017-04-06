@@ -109,7 +109,8 @@
    * [Read data from an Excel shit](#read-data-from-an-excel-shit)
    * [SQLite database access](#sqlite-database-access)
    * [Show a progress bar](#show-a-progress-bar)
-   * [Parallelize code which generates PDF plots](#parallelize-code-which-generates-pdf-plots)
+   * [Parallelize code that generates PDF plots](#parallelize-code-that-generates-pdf-plots)
+   * [Parallel by](#parallel-by)
 
 ## Array analysis
 
@@ -2468,7 +2469,7 @@ for(i in 1:length(s)) {
 }
 ```
 
-### Parallelize code which generates PDF plots
+### Parallelize code that generates PDF plots
 
 PDF files contain instructions for the drawing engine, thus forcing to be writen sequentially. To speed up parallel code which generates graphics, a trick is to generate high resolution TIFF images using the TIFF driver, and eventually merge them in a PDF (sequentially):
 
@@ -2496,5 +2497,23 @@ lapply(img,function(tmp) {
     file.remove(tmp)
 })
 dev.off()
+```
+
+### Parallel by
+
+''by()'' is often used as a replacement for ''tapply()'' to split-map-reduce like treatment of data frames.
+
+```R
+res <- do.call(rbind, by(x, x$key, function(x) {
+    x[which.min(x[, colorCols[["distance"]]]), , drop=FALSE]
+}))
+```
+
+The code is slow for relatively large datasets, both the ''do.call(rbind, ...'' and the single thread execution of ''by()''. The solutions comes to use multiple threads from the ''parallel'' package, use the ''data.table::rbindlist'' to reduce the final list:
+
+```R
+res <- data.table::rbindlist(mclapply(split(x, x$key), function(x) {
+    x[which.min(x[, colorCols[["distance"]]]), , drop=FALSE]
+}, mc.cores=getOption("mc.cores", 4L)))
 ```
 
