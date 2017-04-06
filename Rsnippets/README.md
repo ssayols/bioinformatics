@@ -2505,15 +2505,17 @@ dev.off()
 
 ```R
 res <- do.call(rbind, by(x, x$key, function(x) {
-    x[which.min(x[, colorCols[["distance"]]]), , drop=FALSE]
+    x[which.min(x$distance), ]
 }))
 ```
 
 The code is slow for relatively large datasets, both the ''do.call(rbind, ...'' and the single thread execution of ''by()''. The solutions comes to use multiple threads from the ''parallel'' package, use the ''data.table::rbindlist'' to reduce the final list:
 
 ```R
+library(parallel)
+
 res <- data.table::rbindlist(mclapply(split(x, x$key), function(x) {
-    x[which.min(x[, colorCols[["distance"]]]), , drop=FALSE]
+    x[which.min(x$distance), ]
 }, mc.cores=getOption("mc.cores", 4L)))
 ```
 
