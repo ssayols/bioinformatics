@@ -1235,30 +1235,31 @@ analyse.barcodes(mySet)
 Biomart is the data access interface for Ensembl databases. The ''biomaRt'' package from ''bioconductor'' provides an API to access the datamart.
 
 ```R
- #######################################
- ##
- ## Biomart access
- ##
- ## listDatasets(useMart="ensembl") --> returns the available organisms
- ## listFilters(mart) --> returns the filters that can be applied on the dataset
- ## listAttributes(mart) --> returns a list of available fields on the dataset
- ##
- #######################################
- library(biomaRt)
- 
- ## normal connection (ensembl genes, hg19)
- mart <- useMart("ensembl",dataset="hsapiens_gene_ensembl")
- gene.ann <- getBM(attributes=c("ensembl_gene_id","wikigene_name","chromosome_name","start_position","end_position"),mart=mart)
- 
- ## connect to HG18
- #mart  <- useMart("ENSEMBL_MART_ENSEMBL",dataset="hsapiens_gene_ensembl",
- #	host="may2009.archive.ensembl.org",
- #	path="/biomart/martservice",archive=FALSE)	# Ensembl54 (hg18/NCBI36))
- 
- ## connect to Variation (SNPs)
- # mart <- biomaRt::useMart("snp",dataset="hsapiens_snp")
- # snp  <- biomaRt::getBM(attributes=c("refsnp_id","chr_name","chrom_start"),
- #	filters="snp_filter",values=snp,mart=mart)
+#######################################
+##
+## Biomart access
+##
+## listDatasets(useMart="ensembl") --> returns the available organisms
+## listFilters(mart) --> returns the filters that can be applied on the dataset
+## listAttributes(mart) --> returns a list of available fields on the dataset
+##
+#######################################
+library(biomaRt)
+
+## normal connection (ensembl genes, hg19)
+gene.ann <- getBM(attributes=c("ensembl_gene_id","external_gene_name","chromosome_name","start_position","end_position"),
+                  filter="biotype", values="protein_coding",
+                  mart=useMart("ensembl",dataset="hsapiens_gene_ensembl"))
+
+## connect to HG18
+#mart  <- useMart("ENSEMBL_MART_ENSEMBL",dataset="hsapiens_gene_ensembl",
+#	host="may2009.archive.ensembl.org",
+#	path="/biomart/martservice",archive=FALSE)	# Ensembl54 (hg18/NCBI36))
+
+## connect to Variation (SNPs)
+# mart <- biomaRt::useMart("snp",dataset="hsapiens_snp")
+# snp  <- biomaRt::getBM(attributes=c("refsnp_id","chr_name","chrom_start"),
+#	filters="snp_filter",values=snp,mart=mart)
 ```
 
 ### Getting things from the Ensembl databases
