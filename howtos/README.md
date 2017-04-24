@@ -2,6 +2,8 @@
 
 * [Convert BAM to BigWig](#convert-bam-to-bigwig)
 * [Deduplicate UMIs](#deduplicate-umis)
+* [Differential Exon Usage](#differential-exon-usage)
+   * [DEXSeq](#dexseq)
 * [Downsample](#downsample)
    * [Fastq](#fastq)
    * [BAM](#bam)
@@ -579,4 +581,99 @@ Please remind that's not the best strategy for high IO load. That should go in c
 
 * using the scratch disks
 * LSF doesn't let you book for IO resources. Thus, limit the number of concurrent tasks
+
+## Differential exon usage
+
+### DEXSeq
+
+Do differential exon usage with ''DEXSeq'' and ''Bioconductor''
+
+```R
+library(GenomicFeatures)
+library(GenomicAlignments)
+library(Rsamtools)
+library(DEXSeq)
+library(BiocParallel)
+
+PROJECT <- "/project/
+GTF <- "/annotation/Homo_sapiens.GRCh38.84.gtf"
+FC  <- log2(1.5)    # expect 50% more expression
+FDR <- .01
+
+##
+## count reads on exons
+##
+exonicParts <- disjointExons(makeTxDbFromGFF(GTF))
+bams <- BamFileList(list.files(paste0(PROJECT, "/mapped"), pattern="_read\\.bam$", full=TRUE),
+                    index=character(),              # the BAM index file path
+                    asMates=TRUE,                   # records should be paired as mates
+                    obeyQname=TRUE)                 # BAM file is sorted by ‘qname’
+
+counts <- summarizeOverlaps(exonicParts,
+                            bams,
+                            mode="Union",           # default htseq union mode
+                            singleEnd=FALSE,        # data is paired end
+                            inter.feature=FALSE,    # don't discard reads spannings multiple exons
+                            fragments=TRUE,         # count also singletons
+                            ignore.strand=TRUE,     # it's strand specific, but still ignore the strand
+                            BPPARAM=MulticoreParam(workers=6))
+
+##
+## DEXSeq
+##
+colData(counts)$condition <- c(rep("Id2", 3), rep("GFP", 3))
+dds <- DEXSeqDataSetFromSE(counts, design= ~ sample + exon + condition:exon )
+
+# normalize, estimate dispersion, test for differential expression and estimate fold changes
+dds <- estimateSizeFactors(dds)
+dds <- estimateDispersions(dds, BPPARAM=MulticoreParam(workers=16))
+dds <- testForDEU(dds, BPPARAM=MulticoreParam(workers=16))
+dds <- estimateExonFoldChanges(dds, fitExpToVar="condition", BPPARAM=MulticoreParam(workers=16))
+
+# extract significant genes
+res <- DEXSeqResults(dds)
+
+res$log2fold_Id2_GFP <- ifelse(is.na(res$log2fold_Id2_GFP), 0, res$log2fold_Id2_GFP)
+res$padj <- ifelse(is.na(res$padj), 1, res$padj)
+geneids <- unique(res$groupID[abs(res$log2fold_Id2_GFP) > FC & res$padj < FDR])
+
+res2 <- res[res$groupID %in% geneids, ]
+x <- do.call(rbind, by(res2, res2$groupID, function(x) data.frame(padj=min(x$padj), log2fold_Id2_GFP=max(x$log2fold_Id2_GFP))))
+
+DEXSeqHTML(res2, path=paste0(PROJECT, "/results/DEXSeq"), FDR=FDR, BPPARAM=MulticoreParam(workers=16), extraCols=x,
+           mart=useMart("ensembl",dataset="hsapiens_gene_ensembl"), filter="ensembl_gene_id", attributes="external_gene_name")
+
+save.image(file=paste0(PROJECT, "/results/DEXSeq.RData"))
+```
+
+'''Notes:'''
+Running on PE inversely stranded protocols, look at [https://support.bioconductor.org/p/65844/ this bioconductor thread].
+
+Some parts of the code need to be adjusted. First, we'll need to define our own invertStrand function:
+
+```R
+invertStrand <- function(galp)
+{
+    ## Using a non-exported helper function and direct slot access is
+    ## bad practice and is strongly discouraged. Sorry for doing this here!
+    invertRleStrand <- GenomicAlignments:::invertRleStrand
+    galp@first <- invertRleStrand(galp@first)
+    galp@last <- invertRleStrand(galp@last)
+    galp
+}
+```
+
+Which will then be called from the ''summarizeOverlaps()'' call in ''DEXSeq'', as a preprocessing step:
+
+```R
+counts <- summarizeOverlaps(exonicParts,
+                            bams,
+                            mode="Union",           # default htseq union mode
+                            singleEnd=FALSE,        # data is paired end
+                            inter.feature=FALSE,    # don't discard reads spannings multiple exons
+                            fragments=TRUE,         # count also singletons
+                            ignore.strand=FALSE,
+                            preprocess.reads=invertStrand, # as suggested in: https://support.bioconductor.org/p/65844/
+                            BPPARAM=MulticoreParam(workers=6))
+```
 
