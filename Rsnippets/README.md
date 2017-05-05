@@ -32,20 +32,18 @@
 * [Plots](#plots-1)
    * [Color palettes](#color-palettes)
       * [A colorblind-friendly palette](#a-colorblind-friendly-palette)
-      * [Palettes: Color Brewer](#palettes-color-brewer)
-      * [Palettes: manually-defined](#palettes-manually-defined)
-      * [Continuous colors](#continuous-colors)
+      * [Color palettes with RColorBrewer](#color-palettes-with-rcolorbrewer)
       * [A very large (255) high contrast color palette](#a-very-large-255-high-contrast-color-palette)
+   * [Spaghetti plot: graphs showing regression uncertainty](#spaghetti-plot:-graphs-showing-regression-uncertainty)
    * [MA plot](#ma-plot)
    * [Circle](#circle)
-   * [Ellipse around the CI 95\x](#ellipse-around-the-ci-95)
+   * [Ellipse around the CI95](#ellipse-around-the-ci-95)
    * [Boxplot with average and standard deviation](#boxplot-with-average-and-standard-deviation)
    * [Histogram and density function in the same plot using ''ggplot''](#histogram-and-density-function-in-the-same-plot-using-ggplot)
    * [Placing multiple plots in the same device](#placing-multiple-plots-in-the-same-device)
    * [Placing multiple plots in the same device using ''ggplot'' the ''grid'' package](#placing-multiple-plots-in-the-same-device-using-ggplot-the-grid-package)
    * [Venn Diagrams](#venn-diagrams)
    * [Calling gnuplot](#calling-gnuplot)
-   * [Color palettes with RColorBrewer](#color-palettes-with-rcolorbrewer)
    * [Density 2d plots](#density-2d-plots)
       * [Base system](#base-system)
       * [smoothScatter](#smoothscatter)
@@ -628,50 +626,24 @@ scale_fill_manual(values=cbPalette)
 scale_colour_manual(values=cbPalette)
 ```
 
-#### Palettes: Color Brewer
-
-You can also use other color scales, such as ones taken from the RColorBrewer package. See the chart of RColorBrewer palettes below. See the scale section here for more information.
+#### Color palettes with RColorBrewer
 
 ```R
-ggplot(df, aes(x=cond, y=yval, fill=cond)) + geom_bar(stat="identity") +
-    scale_fill_brewer()
+require("RColorBrewer") 
 
-ggplot(df, aes(x=cond, y=yval, fill=cond)) + geom_bar(stat="identity") +
-    scale_fill_brewer(palette="Set1")
+# show all available palettes
+display.brewer.all()
 
-ggplot(df, aes(x=cond, y=yval, fill=cond)) + geom_bar(stat="identity") +
-    scale_fill_brewer(palette="Spectral")
+# show the palette we are planning
+display.brewer.pal(9,"Oranges")
 
-# Note: use scale_colour_brewer() for lines and points
-```
+# use it as a gradient palette for heatmaps
+hmcol   <- colorRampPalette(brewer.pal(9,"Oranges"))(100)
+heatmap.2(mat,trace="none",col=rev(hmcol),margin=c(13,13))
 
-#### Palettes: manually-defined
-
-Finally, you can define your own set of colors with scale_fill_manual(). See the hexadecimal code chart below for help choosing specific colors.
-
-```R
-ggplot(df, aes(x=cond, y=yval, fill=cond)) + geom_bar(stat="identity") + 
-    scale_fill_manual(values=c("red", "blue", "green"))
-
-ggplot(df, aes(x=cond, y=yval, fill=cond)) + geom_bar(stat="identity") + 
-    scale_fill_manual(values=c("#CC6666", "#9999CC", "#66CC99"))
-
-# Note: use scale_colour_manual() for lines and points
-```
-
-#### Continuous colors
-
-```R
-# Generate some data
-set.seed(133)
-df <- data.frame(xval=rnorm(50), yval=rnorm(50))
-
-# Make color depend on yval
-ggplot(df, aes(x=xval, y=yval, colour=yval)) + geom_point()
-
-# Use a different gradient
-ggplot(df, aes(x=xval, y=yval, colour=yval)) + geom_point() + 
-    scale_colour_gradientn(colours=rainbow(4))
+# use it to display categorical data
+plot(x=x$x[,1],y=x$x[,2],pch=16,cex=.5,
+     col=brewer.pal(length(levels(condition)),"Set1")[condition])
 ```
 
 #### A very large (255) high contrast color palette
@@ -713,6 +685,32 @@ c("#000000", "#FFFF00", "#1CE6FF", "#FF34FF", "#FF4A46", "#008941", "#006FA6", "
   "#2F5D9B", "#6C5E46", "#D25B88", "#5B656C", "#00B57F", "#545C46", "#866097", "#365D25",
   "#252F99", "#00CCFF", "#674E60", "#FC009C", "#92896B")
 ```
+### Spaghetti plot: graphs showing regression uncertainty
+
+The idea is taken from [http://andrewgelman.com/2012/08/26/graphs-showing-regression-uncertainty-the-code/ here] and is only partially implemented (only the spaghetti code, not the the shaded CI.
+
+```R
+# plot data points
+x <- rnorm(100)
+y <- 2 * x + rnorm(100, mean=1)^3
+plot(x, y, pch=16)#, type="n")
+
+# spaghetti
+ci <- replicate(1000, {
+    i <- sample(length(x), replace=TRUE)
+    newx <- x[i]
+    newy <- y[i]
+    fit <- loess(newy ~ newx)
+    lines(newx[order(newx)], fit$fitted[order(newx)], col="#0000FF10")
+    data.frame(x=newx[order(newx)], y=fit$fitted[order(newx)])
+}, simplify=FALSE)
+ci <- do.call(rbind, ci)
+
+# consensus fit
+#fit <- loess(ci$y ~ ci$x)  # takes forever to compute
+#lines(ci$x[order(ci$x)], fit$fitted[order(ci$x)], col="red", lwd=2)
+lines(lowess(ci$y ~ ci$x, f=1/3), col="red", lwd=2)
+```
 
 ### MA plot
 
@@ -743,7 +741,7 @@ circle <- function(x,y,r,...) {	# col=fill_colour,border=outline_colour
 }
 ```
 
-### Ellipse around the CI 95%
+### Ellipse around the CI95
 
 Draw an ellipse describing the CI 95% of some (x,y) points. Useful to describe groups when reducing to only a couple of components (through a PCA or MDS) large datasets with several independent variables describing a sample.
 
@@ -925,26 +923,6 @@ gp.close(h1)
 
 More info in [[Plotting with gnuplot from R]]
 
-### Color palettes with RColorBrewer
-
-```R
-require("RColorBrewer") 
-
-# show all available palettes
-display.brewer.all()
-
-# show the palette we are planning
-display.brewer.pal(9,"Oranges")
-
-# use it as a gradient palette for heatmaps
-hmcol   <- colorRampPalette(brewer.pal(9,"Oranges"))(100)
-heatmap.2(mat,trace="none",col=rev(hmcol),margin=c(13,13))
-
-# use it to display categorical data
-plot(x=x$x[,1],y=x$x[,2],pch=16,cex=.5,
-     col=brewer.pal(length(levels(condition)),"Set1")[condition])
-```
-
 ### Density 2d plots
 
 #### Base system
@@ -986,7 +964,7 @@ xlab = "expression level (reads/kbp)", ylab = "duplication level (% duplicate re
 axes = FALSE, color.palette=pal, ...)
 ```
 
-The palette can be modified with RColorBrewer to visually imporve the result:
+The palette can be modified with RColorBrewer to visually improve the result:
 ```R
 require(RColorBrewer)
 pal <- function(n) { colorRampPalette(brewer.pal(9,"Oranges"))(n) }
