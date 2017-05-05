@@ -34,7 +34,7 @@
       * [A colorblind-friendly palette](#a-colorblind-friendly-palette)
       * [Color palettes with RColorBrewer](#color-palettes-with-rcolorbrewer)
       * [A very large (255) high contrast color palette](#a-very-large-255-high-contrast-color-palette)
-   * [Spaghetti plot: graphs showing regression uncertainty](#spaghetti-plot:-graphs-showing-regression-uncertainty)
+   * [Spaghetti plot: graphs showing regression uncertainty](#spaghetti-plot-graphs-showing-regression-uncertainty)
    * [MA plot](#ma-plot)
    * [Circle](#circle)
    * [Ellipse around the CI95](#ellipse-around-the-ci-95)
