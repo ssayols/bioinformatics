@@ -53,6 +53,7 @@
    * [PCA BiPlot with ggplot2 and Interactive plots in a shiny app](#pca-biplot-with-ggplot2-and-interactive-plots-in-a-shiny-app)
    * [Raster kegg PNG pathways within a coordinate system](#raster-kegg-png-pathways-within-a-coordinate-system)
    * [Plot chromosome ideograms](#plot-chromosome-ideograms)
+   * [Plot chromosome ideograms with additional tracks](#plot-chromosome-ideograms-with-additional-tracks)
    * [Gviz plots](#gviz-plots)
    * [Graphical representation of contingency tables](#graphical-representation-of-contingency-tables)
 * [Miscellaneous bioinformatic related stuff](#miscellaneous-bioinformatic-related-stuff)
@@ -167,19 +168,19 @@ It can be done in a three steps procedure using the ''lumi'' package from ''bioc
  ## filter non variant probes by IQR
  eset <- exprs(dades.c.quantile)
  eset.IQR <- varFilter(eset,var.func=IQR,var.cutoff=0.5,filterByQuantile=TRUE)
- 
+
  # Define design and contrast matrices
  design <- model.matrix(~0 + pData(dades.c.quantile)$grup)
- rownames(design) <-pData(x)$sampleID 
+ rownames(design) <-pData(x)$sampleID
  colnames(design) <- c("G1","G2")
  cont.matrix <- makeContrasts(Grup1vsGrup2=G1-G2,levels=design)
- 
+
  # Get the differentially methylated probes by linear model + bayes stats
- # Model lineal i eBayes 
- fit1 <- lmFit(eset.IQR,design) 
+ # Model lineal i eBayes
+ fit1 <- lmFit(eset.IQR,design)
  fit2 <- contrasts.fit(fit1,cont.matrix)
  fit3 <- eBayes(fit2)
- 
+
  # Rank the probes
  CG <- topTable(fit3,adjust="fdr",number=nrow(fit3))	# adjust FDR
 ```
@@ -197,21 +198,21 @@ This is a parallelized version using ''snow'' and 16 cores to analyze SNP arrays
  #library(MC)
  #library(doMC)
  #registerDoMC(16)
- 
+
  # read arrays
  library(oligo)
  library(pd.genomewidesnp.6)
  #library(human650v3aCrlmm)	# Illumina HumanHap650Y
  #library(human550v3bCrlmm)	# Illumina HumanHap550Y
- 
+
  fullFilenames <- list.celfiles("arrays",full.names=TRUE)
  outputDir <- file.path(getwd(),"crlmmResults")
- 
+
  crlmm(fullFilenames,outputDir,pkgname="pd.genomewidesnp.6")
  #crlmm(fullFilenames,outputDir,pkgname="human650v3aCrlmm")
  #crlmm(fullFilenames,outputDir,pkgname="human550v3bCrlmm")
  crlmmOut <- getCrlmmSummaries(outputDir)
- 
+
  write.csv(calls(crlmmOut),file="SNP.csv")
 ```
 
@@ -228,10 +229,10 @@ This protocol uses the ''affy'' package from ''bioconductor''
  library("affy")       #Import and normalize data
  library("limma")      #Differential expression
  library("genefilter") #Gene filtering
- 
+
  ## Import sample description from targets.txt file
  targets <- readTargets("arrays/targets.txt", row.names="FileName")
- 
+
  ## Import .CEL files
  data <- ReadAffy(filenames=targets$FileName)
 ```
@@ -243,14 +244,14 @@ Standard RMA and quantiles normalization using the ''expresso'' function:
 ```R
  eset <- expresso(
          data,
-         bg.correct = TRUE, 
+         bg.correct = TRUE,
          bgcorrect.method="rma",
-         normalize = TRUE, 
-         normalize.method="quantiles", 
-         pmcorrect.method="pmonly", 
+         normalize = TRUE,
+         normalize.method="quantiles",
+         pmcorrect.method="pmonly",
          summary.method="medianpolish",
          verbose = TRUE,
-         ) 
+         )
 ```
 
 #### Quality control
@@ -264,7 +265,7 @@ Almost useless quality control information:
          data,
          main="Boxplot Before Normalization",
          col = "lightgrey")
- 
+
  # boxplot de datos normalizados         
  exprseset <- as.data.frame(exprs(eset))         
  boxplot(
@@ -278,19 +279,19 @@ Almost useless quality control information:
 ```R
  ## filter non variant probes by IQR
  esetIQR <- varFilter(eset, var.func=IQR, var.cutoff=0.5, filterByQuantile=TRUE)
- 
+
  # Define design and contrast matrices
  design <- model.matrix(~0 + as.factor(targets$Classes))
  colnames(design) <- c("AA","CA","HC")
  rownames(design) <- targets$FileName
- cont.matrix<-makeContrasts(AAvsCA=AA-CA,AAvsHC=AA-HC,CAvsHC=CA-HC,levels=design) 
- 
+ cont.matrix<-makeContrasts(AAvsCA=AA-CA,AAvsHC=AA-HC,CAvsHC=CA-HC,levels=design)
+
  # Get the differentially methylated probes by linear model + bayes stats
  # Model lineal and eBayes
  fit1 <- lmFit(esetIQR,design)
  fit2 <- contrasts.fit(fit1, cont.matrix)
  fit3 <- eBayes(fit2)
- 
+
  # List of differentially expressed genes
  toptableIQR <- topTable(fit3, number=nrow(fit3), adjust.method="BH", sort.by="F")
 ```
@@ -532,6 +533,8 @@ seqLogo(weightMatrixNormalized)
 
 #### Distribution of peaks along the genome
 
+Maybe see also [Plot chromosome ideograms with additional tracks](#plot-chromosome-ideograms-with-additional-tracks)
+
 '''Read peaks:'''
 
 ```R
@@ -629,7 +632,7 @@ scale_colour_manual(values=cbPalette)
 #### Color palettes with RColorBrewer
 
 ```R
-require("RColorBrewer") 
+require("RColorBrewer")
 
 # show all available palettes
 display.brewer.all()
@@ -725,7 +728,7 @@ Visual representation of log ratios (M) and mean average (A) intensities. Useful
  	o=order(A)
  	lines(A[o],fit$fitted[o],col=2)
  }
- 
+
  maplot(y[wh,2],y[wh,3],ylim=c(-5,5))
 ```
 
@@ -750,11 +753,11 @@ ell95 <- function(df) {
 	require(ellipse)
 	require(ggplot2)
 
-	ell <- data.frame() 
+	ell <- data.frame()
 	for(g in levels(df$group)) {
 		e <- with(df[df$group==g,],ellipse(cor(x,y),scale=c(sd(x),sd(y)),centre=c(mean(x),mean(y))))
 		ell <- rbind(ell,cbind(as.data.frame(e),group=g))
-	} 
+	}
 	ggplot(data=df,aes(x=x,y=y,colour=group)) + geom_point() + geom_path(data=ell,aes(x=x,y=y,colour=group))
 }
 
@@ -775,14 +778,14 @@ arrows(xi, avg - sdev, xi, avg + sdev, code=3, col="orange", angle=75, length=.1
 
 ```R
 require(ggplot2)
- 
+
 df <- data.frame(cond=c(rep("before",length(before)),rep("after",length(after))),
                  vals=c(before,after))
 p <- ggplot(df,aes(x=vals,fill=cond)) +
 	geom_histogram(aes(y=..density..,fill=cond),alpha=.5,position="identity") +
 	geom_density(alpha=.2) +
 	ggtitle(rownames(ic50)[i])
-	
+
 print(p)
 ```
 
@@ -812,14 +815,14 @@ First option, using the ''grid'' package and creating ''viewports'':
 
 ```R
  library("grid")
- 
+
  vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y)
- 
+
  plot1 <- qplot(mtcars,x=wt,y=mpg,geom="point",main="Scatterplot of wt vs. mpg")
  plot2 <- qplot(mtcars,x=wt,y=disp,geom="point",main="Scatterplot of wt vs disp")
  plot3 <- qplot(wt,data=mtcars)
  plot4 <- qplot(wt,mpg,data=mtcars,geom="boxplot")
- 
+
  # 4 figures arranged in 2 rows and 2 columns
  grid.newpage()
  pushViewport(viewport(layout = grid.layout(2, 2)))
@@ -830,10 +833,10 @@ First option, using the ''grid'' package and creating ''viewports'':
 ```
 
 Second option, use the ''gridExtra'' package:
- 
+
 ```R
  library("gridExtra")
- 
+
  plot1 <- qplot(...)
  plot2 <- qplot(...)
  sidebysideplot <- grid.arrange(plot1, plot2, ncol=2)
@@ -873,20 +876,20 @@ require(limma)
 Venn3 <- function(set1, set2, set3, names)
 {
   stopifnot( length(names) == 3)
- 
+
   # Form universe as union of all three sets
   universe <- sort( unique( c(set1, set2, set3) ) )
- 
+
   Counts <- matrix(0, nrow=length(universe), ncol=3)
   colnames(Counts) <- names
- 
+
   for (i in 1:length(universe))
   {
     Counts[i,1] <- universe[i] %in% set1
     Counts[i,2] <- universe[i] %in% set2
     Counts[i,3] <- universe[i] %in% set3
   }
- 
+
   vennDiagram( vennCounts(Counts) )
 }
 
@@ -943,7 +946,7 @@ colLegend <- data.frame(density=seq(min(dens), max(dens), len=10), color=I(color
 par(mar=c(5,0,5,0))
 plot(NA, xlim=c(0,10), ylim=c(0,11), type="n", ann=FALSE, axes=FALSE)
 rect(0, 1:10, 1, 2:11, border=NA, col=colLegend$col)
-text(2, (1:10)+0.5, signif(colLegend$density, 2), adj=0) 
+text(2, (1:10)+0.5, signif(colLegend$density, 2), adj=0)
 ```
 
 #### smoothScatter
@@ -991,9 +994,9 @@ print(p)
 ```R
 require(MASS)
 pal <- colorRampPalette(c('dark blue','blue','light blue','yellow','orange','red','dark red'))
-persp(kde2d(log10(DupMat[, "RPK"]), 100 * DupMat[, "dupRate"]), 
+persp(kde2d(log10(DupMat[, "RPK"]), 100 * DupMat[, "dupRate"]),
 theta = 30, phi = 30, expand = 0.5, ltheta = 120, shade = 0.75, ticktype = "detailed",
-xlab = "expression level (reads/kbp)", 
+xlab = "expression level (reads/kbp)",
 ylab = "duplication level (% duplicate reads)",
 zlab = "density") -> res
 ```
@@ -1110,8 +1113,14 @@ dibuixaIdeograma <- function(chr) {
         ideo[is.na(ideo[,9]),9] <- 1
         pal <- colorRampPalette(c("white","black"))(100)
     for(i in seq(along = ideo[,1])) {
-                grid.rect(x=ideo[i,6],y=2,width=ideo[i,7]-ideo[i,6],height=2,gp=gpar(col=pal[ideo[i,9]],fill=pal[ideo[i,9]]),default
-.units="native",just=c("left","bottom"))
+                grid.rect(x=ideo[i,6],
+                y=2,
+                width=ideo[i,7]-ideo[i,6],
+                height=2,
+                gp=gpar(col=pal[ideo[i,9]],
+                fill=pal[ideo[i,9]]),
+                default.units="native",
+                just=c("left","bottom"))
         }
 
         # center == centromer (on creuarem els dos braços)
@@ -1129,6 +1138,70 @@ dibuixaIdeograma <- function(chr) {
         popViewport()
 }
 ```
+
+### Plot chromosome ideograms with additional tracks
+
+Ideograms aka karyograms may contain additional information like p-Values or coverage information.   
+https://stackoverflow.com/questions/44003072/annotate-karyogram-with-granges-track/44043471#44043471 points to an option how to annotate karyograms with additional data.
+
+
+```R
+library("ggbio")
+library("GenomicRanges")
+# needs biovizBase as well
+
+# test data look like this
+    CHROM    POS  fisher_het
+ 1:    10 134775 0.299587633
+ 2:    10 135237 1.000000000
+ 3:    10 135277 0.483198279
+ 4:    10 135331 0.224587437
+ 5:    10 135334 0.068035761
+ 6:    10 135656 0.468998144
+ 7:    10 135708 0.746611845
+ 8:    10 135801 0.242257762
+ 9:    10 135853 0.001234701
+10:    10 137186 0.774670848
+
+# load banding data
+data(hg19IdeogramCyto, package = "biovizBase")
+hg19 <- keepSeqlevels(hg19IdeogramCyto, paste0("chr", c(1:22, "X", "Y")))
+
+# create a test GRanges object
+# from the test data given above
+test.granges <- GRanges(seqnames = paste0("chr", df.test.data$CHROM),
+                        ranges=IRanges(start = df.test.data$POS,
+                                       end = df.test.data$POS),
+                        strand = "*",
+                        fisher_het = df.test.data$fisher_het)
+
+# attach chromosome lengths
+data(hg19Ideogram, package = "biovizBase")
+seqlengths(test.granges) <- seqlengths(hg19Ideogram)[names(seqlengths(test.granges))]
+
+```
+
+- the x-coordinate from the GRanges object to be used would be `start`
+- `ylim` defines the size of the point-subplots
+- `size` needs to be reduced a little as default point size would produce a nearly unreadable plot
+- `geom` understands all ggplot2 geom_... , e.g. `line` and `point`
+
+```R
+# plot karyogram with p-Values as point ploy on top of chromosomes
+
+ggplot(hg19) +
+     layout_karyogram(cytoband = TRUE) +
+     layout_karyogram(data = test.granges,
+                      geom = "point",
+                      aes(x=start, y=fisher_het),
+                      ylim = c(10,50),
+                      color = "black",
+                      size = 0.4
+                      )
+
+```
+
+
 
 ### Gviz plots
 
@@ -1256,7 +1329,7 @@ x     <- dbGetQuery(conn=con,statement=query)
 
 ### Getting things from the UCSC tables and ENCODE tracks
 
-Using the '''rtracklayer''' package. Examples adapted from there: 
+Using the '''rtracklayer''' package. Examples adapted from there:
 
 ```R
 library(rtracklayer)
@@ -1293,22 +1366,22 @@ tbl.k562.dgf.hg19 <- getTable(ucscTableQuery(mySession,track=track.name,table=ta
 
 ```R
  library(drc)
- 
+
  # llegir dades
  x <- read.csv("x.csv")
  x$dose <- 2^x$concen
- 
+
  # fit into a sigmoidal model
  mock <- drm(mock ~ dose,data=x,
  			fct=LL.4(names=c("Slope","Lower Limit","Upper Limit", "ED50")))
- 
+
  oe   <- drm(oe ~ dose,data=x,
  			fct=LL.4(names=c("Slope","Lower Limit","Upper Limit", "ED50")))
- 
+
  # report the IC50 with its confidence intervals
  ED(mock,c(5,50,95),interval="delta")
  ED(oe  ,c(5,50,95),interval="delta")
- 
+
  # plot
  plot(mock,broken=T,type="all",col="red",ylab="viability")
  plot(oe  ,broken=T,type="all",col="blue",add=T)
@@ -1336,25 +1409,25 @@ First method is based on anova multiple sample test described in Elso et al, 200
  ## |           2uM |   0.55  |     |   0.61  | SKMEL |
  ## |  ...                                            |
  ## +---------------+---------+-----+---------+-------+
- ## 
+ ##
  library(statmod)
  library(reshape2)
  library(parallel)
- 
+
  # permutation test
  tperm <- function(f,nperm=1000) {
- 
+
  	# read data an normalize every clon with its first concentration value
  	df <- read.csv(f)
  	vals <- grep("^x",colnames(df))
  	df.norm <- as.list(by(df[,vals],df$Group,function(df) { apply(df,2,function(x) x / x[1]) }))
  	A  <- rep(names(df.norm),each=length(vals))
  	dades <- Reduce(cbind,df.norm)
- 
+
  	# permutation test
  	s <- compareGrowthCurves(A,t(as.matrix(dades)),nsim=nperm)
  	write.csv(s,file=paste0("stats.",f))
- 
+
  	# plot the dosage curves (be careful, the regression is polinomic (loess) and not logistic)
  	pdf(paste0("stats.",f,".pdf"))
  	df.norm <- lapply(df.norm,as.data.frame)
@@ -1368,7 +1441,7 @@ First method is based on anova multiple sample test described in Elso et al, 200
  	print(p)
  	dev.off()
  }
- 
+
  mclapply(list.files(pattern="*.csv"),tperm,nperm=1000,mc.cores=4)
 ```
 
@@ -1381,25 +1454,25 @@ Second method is based on the F-score from an anova test, were we compare the or
  	dades$Concentration <- as.factor(dades$Concentration)
  	dades$Group <- as.factor(dades$Group)
  	d <- anova(lm(value ~ Group*Concentration,data=dades))["Group:Concentration","F value"]
- 
+
  	# get nperm scores (permutation test)
  	require(parallel)
- 
+
  	d.null <- mclapply(1:nperm,function(x) {
  		# permute (only permute the values inside every concentration)
- 		perm <- by(dades,dades[,"Concentration"],function(x) { 
- 						x$value <- x$value[sample(1:nrow(x))]; 
+ 		perm <- by(dades,dades[,"Concentration"],function(x) {
+ 						x$value <- x$value[sample(1:nrow(x))];
  						return(x) })
  		perm <- do.call(rbind,perm)
  		d <- anova(lm(value ~ Group*Concentration,data=perm))["Group:Concentration","F value"]
  	},mc.cores=4)
- 
+
  	# build an empirical distribution, and output the pvalue to get more extreme D
  	p.null <- ecdf(unlist(d.null))
  	print(paste(f,"pval:",1 - p.null(d)))
  	return(p.null)
  }
- 
+
  s <- sapply(c("akt","sft31","shikonin"),tperm,10000)
 ```
 
@@ -1465,7 +1538,7 @@ Get a dataset from GEO directly quering from R and the ''GEOquery'' package from
 ```R
  library(Biobase)
  library(GEOquery)
- 
+
  ##
  ## Retina i Retina Detachment
  ##
@@ -1473,17 +1546,17 @@ Get a dataset from GEO directly quering from R and the ''GEOquery'' package from
  gset <- getGEO("GSE28133",GSEMatrix=T,AnnotGPL=T)	# be careful if the dataset uses more than 1 platform or is divided in several parts
  ex   <- exprs(gset[[1]])
  colnames(ex) <- c(rep("Ret",19),rep("RD",19))
- 
+
  # platform annotation
  gpl    <- annotation(gset[[1]])	# GPL platform name
  platf  <- getGEO(gpl,AnnotGPL=TRUE)
  ncbifd <- data.frame(attr(dataTable(platf),"table"))
- 
+
  # average expression of the several probes that interrogate a gene
  ex <- ex[rownames(ex) %in% ncbifd[ncbifd$Gene.symbol != "","ID"],]
- ex <- apply(ex,2,function(x,gens) { tapply(x,gens,mean,na.rm=T) }, 
+ ex <- apply(ex,2,function(x,gens) { tapply(x,gens,mean,na.rm=T) },
  			sapply(rownames(ex),function(x) ncbifd[ncbifd$ID == x,"Gene.symbol"]))
- 
+
  # save tables
  write.csv(ex[,grep("Ret",colnames(ex))],file="Ret.csv")
  write.csv(ex[,grep("RD",colnames(ex))],file="RD.csv")
@@ -1498,37 +1571,37 @@ This code uses the ''BSgenome'' package from ''bioconductor'' and calculates de 
  library(BSgenome)
  library(BSgenome.Hsapiens.UCSC.hg19)
  library(ggplot2)
- 
+
  ini <- 66217200
  fi  <- 66221000
  w   <- 50
  st  <- w/5	# step window
  gen <- "HMGA2"
  s <- getSeq(Hsapiens,"chr12",ini,fi,as.character=TRUE)
- 
+
  # plot the A/T and C/G content (as the average of w bp)
  pdf(paste(gen,".pdf",sep=""),width=12)
- 
+
  f <- function(i,x,s,w) { length(gregexpr(x,substr(s,i-w,i+w))[[1]]) / (w * 2) }
  A=sapply(seq(from=w,to=nchar(s) - w,by=st),f,"A",s,w)
  T=sapply(seq(from=w,to=nchar(s) - w,by=st),f,"T",s,w)
  C=sapply(seq(from=w,to=nchar(s) - w,by=st),f,"C",s,w)
  G=sapply(seq(from=w,to=nchar(s) - w,by=st),f,"G",s,w)
- 
+
  # A/T content
  df <- data.frame(x=rep(1:length(A),2),y=c(A,T),class=c(rep("A",length(A)),rep("T",length(T))))
  p <- ggplot(df,aes(x=x,y=y,colour=class)) + geom_line(size=1.05) + ggtitle(gen) +
  #	 scale_x_discrete(breaks=df$x,labels=as.character(ini + df$x * w)) +
  	 theme_bw() + theme(axis.text.x=element_text(angle=90, hjust=1))
  print(p)
- 
+
  # C/G content
  df <- data.frame(x=rep(1:length(C),2),y=c(C,G),class=c(rep("C",length(C)),rep("G",length(G))))
  p <- ggplot(df,aes(x=x,y=y,colour=class)) + geom_line(size=1.05) + ggtitle(gen) +
  #	 scale_x_discrete(breaks=df$x,labels=as.character(ini + df$x * w)) +
  	 theme_bw() + theme(axis.text.x=element_text(angle=90, hjust=1))
  print(p)
- 
+
  dev.off()
 ```
 
@@ -1541,7 +1614,7 @@ This code calculates for enrichment in biological processes from Gene Ontology, 
 ```R
 library(org.Hs.eg.db)
 library(GOstats)
- 
+
 # list of official gene names
 geneids <- read.table("list.csv",head=F,row.names=NULL,stringsAsFactors=F)[,1]
 geneids <- geneids[!is.na(geneids)]
@@ -1554,11 +1627,11 @@ genes   <- unlist(mget(geneids,ifnotfound=NA,revmap(org.Hs.egSYMBOL)))
 univ    <- Lkeys(org.Hs.egGO)
 param2  <- new("GOHyperGParams",geneIds=genes,universeGeneIds=univ,annotation="org.Hs.eg.db",ontology="BP")
 hyp     <- hyperGTest(param2)
- 
+
 # take the categories with +2 genes
 result<-summary(hyp,categorySize=2)
 result<-data.frame(result,FDR=p.adjust(result$Pvalue,"fdr"))
- 
+
 # complement the GO term with the genes from the list it contains
 result$genes <- sapply(as.list(geneIdUniverse(hyp)[result$GOBPID]),function(x) {
    paste(names(genes)[genes %in% x],collapse="; ")
@@ -1581,7 +1654,7 @@ library(RSQLite)
 
 drv <- dbDriver("SQLite")
 con <- dbConnect(drv,dbname="/usr/local/lib/R/site-library/org.Hs.eg.db/extdata/org.Hs.eg.sqlite")
- 
+
  genes <- apply(result,1,function(x) {
 		res <- dbGetQuery(con,paste("select distinct a.symbol",
  					    "  from gene_info a,go_bp_all b",
@@ -1589,9 +1662,9 @@ con <- dbConnect(drv,dbname="/usr/local/lib/R/site-library/org.Hs.eg.db/extdata/
  					    "   and go_id = ?"),
  				  data.frame(go_id=x["GOBPID"]))
  		res <- intersect(unique(geneids),res[,1])
- 		return(paste(res,collapse=";")) 
+ 		return(paste(res,collapse=";"))
  })
- 
+
  # save the results
  write.csv(data.frame(result,genes=genes),file="llista_verda.GO.csv")
 ```
@@ -1664,7 +1737,7 @@ g  <- getBM(attributes=c("ensembl_gene_id", "ensembl_transcript_id"), filters="f
             values=unique(unlist(strsplit(x, ";"))), mart=mart)
 xx <- unique(unlist(mget(g$ensembl_gene_id, ifnotfound=NA, revmap(org.Dm.egENSEMBL))))
 #now we have to get rid of the genes which have multiple entrez ids and just take one
-# since mget is adding 0,1,2 to the name we can filter by the ensembl id length (11) 
+# since mget is adding 0,1,2 to the name we can filter by the ensembl id length (11)
 xx <-xx[!duplicated(substr(names(xx), 1, 11))]
 names(xx) <- substr(names(xx), 1, 11)
 univ <- Lkeys(org.Dm.egGO)
@@ -1750,7 +1823,7 @@ How large would you like the resulting list to be?
 * Tiny (0.4)
 
 ```R
-# goterms is the results of gostats as a dataframe or something similar 
+# goterms is the results of gostats as a dataframe or something similar
 # (it will work as long as the Pvalue and GOBPID columns are present)
 goterms <- read.csv("goterms.csv")
 
@@ -1828,7 +1901,7 @@ scores <- {
     x <- goterms$GOBPID[order(goterms$Pvalue)][1:min(c(MAXTERMS, length(goterms$GOBPID)))]
     parSapply(cl, 1:length(x), function(i, x) {
         c(rep(NA, i-1),
-            sapply(i:length(x), function(j, i) { 
+            sapply(i:length(x), function(j, i) {
                 goSim(x[i], x[j], ont="BP", measure="Wang", organism="fly")
             }, i)
         )
@@ -2051,7 +2124,7 @@ summary(pc)  # components summary
 loadings(pc) # loadings of original variables onto components
 
 # Get principal component vectors using prcomp instead of princomp
-# samples as rows & measurements/variables in columns 
+# samples as rows & measurements/variables in columns
 pc <- prcomp(x)
 
 # Plot first 2 PC
@@ -2064,12 +2137,12 @@ plot(data.frame(pc$x[,1:2]),pch=16,col=rgb(0,0,0,0.5))
  # Classical MDS
  # N rows (objects) x p columns (variables)
  # each row identified by a unique row name
- 
+
  d   <- dist(mydata) # euclidean distances between the rows
  fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
  fit # view results
- 
- # plot solution 
+
+ # plot solution
  x <- fit$points[,1]
  y <- fit$points[,2]
  plot(x,y,xlab="Coordinate 1",ylab="Coordinate 2",main="Metric MDS",type="n")
@@ -2082,31 +2155,31 @@ Autoclustering method implemented as described in the paper by Brendan J. Frey a
 
 ```R
 require(apcluster)
- 
+
  ##
  ## k trees defined by affinity propagation, similarites as negative squared Euclidean distances
  ##
  f <- function(s,type,x) {
          h <- apcluster(s)       # determine number of clusters
          a <- aggExCluster(s,h)  # merge clusters
- 
+
          plot(h,s,main=paste("similarities",type,"matrix"))      # plot similarities heatmap labeling the found clusters
          plot(a,main=paste("similarities",type,"matrix"))        # plot the cluster
          # plot the first 2 PCA components and the cluster grouping
          for(i in length(h@clusters):1) {
                  plot(a,x,k=i,main=paste("similarities",type,",",i,"clusters")) }
- 
+
          # write csv with cluster samples
          r <- data.frame()
          for(i in 1:length(h@clusters)) {
                  r <- rbind(r,data.frame(sample=names(h@clusters[[i]]),cluster=i)) }
          write.csv(r,file=paste("lung.AP.",type,".csv",sep=""))
  }
- 
+
  # for graphical representation, we calculate a PCA to get x,y coordinate based on the first 2 components
  pca <- prcomp(t(betas))
  x   <- t(rbind(pca$x[,1],pca$x[,2]))
- 
+
  # distnaces can be calculated as correlations, euclidean or manhattan
  f((as.matrix(as.dist(cor(betas)))*100)^2,"correlation",x)
  #f(negDistMat(t(betas),r=2),"euclidean",x)
@@ -2120,7 +2193,7 @@ require(apcluster)
 NCLUST=9
 k <- lapply(1:NCLUST, function(i) {                                                                                       
     kmeans(models$lfq, centers=i, iter.max=100, nstart=25)                                                                
-}) 
+})
 ```
 
 '''Mfuzz clustering'''
@@ -2140,7 +2213,7 @@ lapply(k, function(k) {
     plot(sk)                                                                                                              
     abline(v=summary(sk)$avg.width, col="red", lty=2)                                                                     
     cat(i, "-->", sum(summary(sk)$clus.avg.widths > summary(sk)$avg.width), fill=T)                                       
-                                                                                                                           
+
     x <- prcomp(models$lfq)                                                                                               
     plot(x$x[,1], x$x[,2], type="n")                                                                                      
     points(x$x[,1], x$x[,2], col=paste0(brewer.pal(12, "Set1")[as.factor(k$cl)], "80"), pch=20, cex=.5)                   
@@ -2204,7 +2277,7 @@ library(survival)
 
 ## nomes del training (29 mostres HR=.03, mirar la KM)
 dat.clin <- read.csv("../RSF.nosurgery/analisi.rsf.v3.MI.csv")
-dat.clin$days  <- round(dat.clin$days / 30) 
+dat.clin$days  <- round(dat.clin$days / 30)
 dat.clin$days <- ifelse(dat.clin$days > 60,60,dat.clin$days)
 dat.clin$grup <- ifelse(dat.clin$grup == "baix","C","E")
 ssizeCT(formula = Surv(days,status) ~ grup, dat = dat.clin,
@@ -2336,7 +2409,7 @@ parseArgs <- function(args,string,default=NULL,convert="as.character") {
 
     if(length(i <- grep(string,args,fixed=T)) == 1)
         return(do.call(convert,list(gsub(string,"",args[i]))))
-    
+
     if(!is.null(default)) default else do.call(convert,list(NA))
 }
 
@@ -2397,28 +2470,28 @@ Access a local SQLite database using the ''DBI'' and ''SQLite'' packages:
 ```R
  library("DBI")
  library("RSQLite")
- 
+
  ## database connection
  drv <- dbDriver("SQLite")
  con <- dbConnect(drv, dbname="knowngenes.db")
- 
+
  ## database access
  obtenirRegio <- function(chr,pos,strand) {
- 
+
      chr    <- paste("chr",chr,sep="")
      strand <- ifelse(strand == "F","+","-")
- 
+
      query <- paste("SELECT name,txStart,txEnd from genes",
                     " WHERE chrom=?",
                     "   AND ? BETWEEN txStart-1500 AND txEnd+1500",
                     "   AND strand != ?")
- 
+
      regio <- dbGetQuery(con,query,data.frame(chr,pos,strand))
- 
+
      return(c(paste(regio$name,collapse=";"),paste(regio$txStart,collapse=";"),paste(regio$txEnd,collapse=";")))
  }
- 
- 
+
+
  regio <- apply(fData450k[,c("chr","pos","strand")],1,obtenirRegio)
 ```
 
@@ -2439,7 +2512,7 @@ progress <- function(current) {
 
 s <- rnorm(1000000)
 
-for(i in 1:length(s)) { 
+for(i in 1:length(s)) {
 
 	# print the progress bar
 	progress(round(100 * i / length(s)))
@@ -2497,4 +2570,3 @@ res <- data.table::rbindlist(mclapply(split(x, x$key), function(x) {
     x[which.min(x$distance), ]
 }, mc.cores=getOption("mc.cores", 4L)))
 ```
-
