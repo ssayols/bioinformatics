@@ -532,9 +532,10 @@ seqLogo(weightMatrixNormalized)
 ```
 
 ### Plots
+
 #### Plot signal around features
 
-The ChIPseeker package suggests taking TSS of known genes. Actually, it can be done with any kind of GRanges object.
+The ChIPseeker package suggests taking TSS of known genes. Actually, it can be done with any kind of GRanges object. ChIPseeker provides a not very flexible `plotHeatmap()` function which does the trick, but here I suggest a more customizable representation of the tags matrix.
 
 In this example, we compare colocalization of 2 different peak marks. We plot how it looks like for a ChIP around anoter ChIP.
 
