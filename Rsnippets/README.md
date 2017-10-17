@@ -28,6 +28,7 @@
       * [MEME](#meme)
       * [BCRANK](#bcrank)
    * [Plots](#plots)
+      * [Plot signal around features](#plot-signal-around-features)
       * [Distribution of peaks along the genome](#distribution-of-peaks-along-the-genome)
 * [Plots](#plots-1)
    * [Color palettes](#color-palettes)
@@ -56,6 +57,7 @@
    * [Plot chromosome ideograms with additional tracks](#plot-chromosome-ideograms-with-additional-tracks)
    * [Gviz plots](#gviz-plots)
    * [Graphical representation of contingency tables](#graphical-representation-of-contingency-tables)
+   * [ChIPseq plots](#chipseq-plots)
 * [Miscellaneous bioinformatic related stuff](#miscellaneous-bioinformatic-related-stuff)
    * [Barcode design](#barcode-design)
    * [Getting things from Biomart](#getting-things-from-biomart)
@@ -530,6 +532,23 @@ seqLogo(weightMatrixNormalized)
 ```
 
 ### Plots
+#### Plot signal around features
+
+The ChIPseeker package suggests taking TSS of known genes. Actually, it can be done with any kind of GRanges object.
+
+In this example, we compare colocalization of 2 different peak marks. We plot how it looks like for a ChIP around anoter ChIP.
+
+```R
+chip1     <- GRanges(chip1$chr, IRanges(start=chip1$start, end=chip1$end))
+chip2     <- GRanges(chip2$chr, IRanges(start=chip2$start, end=chip2$end))
+chip2.3kb <- GRanges(seqnames(chip2), IRanges(start=chip2$summit - 1500, end=chip$summit + 1500))
+tagMatrix <- getTagMatrix(chip1, windows=chip2.3kb)
+
+image(x=-1500:1500, y=1:nrow(tagMatrix), z=t(tagMatrix), useRaster=TRUE, col=c("black", "yellow"),
+      yaxt="n", xaxt="n", ylab="", xlab="")
+title("mark 1 on mark 2", cex.main=.5)
+Axis(side=1, at=c(-1500, 0, 1500), labels=c("-1500", "mark 2", "+1500"), cex.axis=.5)
+```
 
 #### Distribution of peaks along the genome
 
@@ -1255,6 +1274,10 @@ main <- if(x$p.value < .01) "p<0.01" else paste0("p=", round(x$p.value))
 mosaicplot(t(m), color=TRUE, main="contingency table", sub=main)
 assocplot(m, main="deviation from independence of\ncpg islands and ZBTB48 targets")
 ```
+
+### ChIPseq plots
+
+See the section [Plots](#plots) for specific ChIP-seq plots.
 
 ## Miscellaneous bioinformatic related stuff
 
