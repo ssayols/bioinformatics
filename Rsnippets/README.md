@@ -544,6 +544,8 @@ chip1     <- GRanges(chip1$chr, IRanges(start=chip1$start, end=chip1$end))
 chip2     <- GRanges(chip2$chr, IRanges(start=chip2$start, end=chip2$end))
 chip2.3kb <- GRanges(seqnames(chip2), IRanges(start=chip2$summit - 1500, end=chip$summit + 1500))
 tagMatrix <- getTagMatrix(chip1, windows=chip2.3kb)
+tagMatrix <- t(apply(tagMatrix, 1, function(x) x/max(x))) # normalize, as in ChIPseeker:::peakHeatmap.internal
+tagMatrix <- tagMatrix[order(rowSums(tagMatrix)), ]       # sort by signal 
 
 image(x=-1500:1500, y=1:nrow(tagMatrix), z=t(tagMatrix), useRaster=TRUE, col=c("black", "yellow"),
       yaxt="n", xaxt="n", ylab="", xlab="")
