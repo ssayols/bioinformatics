@@ -537,6 +537,8 @@ seqLogo(weightMatrixNormalized)
 
 The ChIPseeker package suggests taking TSS of known genes. Actually, it can be done with any kind of GRanges object. ChIPseeker provides a not very flexible `plotHeatmap()` function which does the trick, but here I suggest a more customizable representation of the tags matrix.
 
+**As a heatmap:**
+
 In this example, we compare colocalization of 2 different peak marks. We plot how it looks like for a ChIP around anoter ChIP.
 
 ```R
@@ -551,6 +553,55 @@ image(x=-1500:1500, y=1:nrow(tagMatrix), z=t(tagMatrix), useRaster=TRUE, col=c("
       yaxt="n", xaxt="n", ylab="", xlab="")
 title("mark 1 on mark 2", cex.main=.5)
 Axis(side=1, at=c(-1500, 0, 1500), labels=c("-1500", "mark 2", "+1500"), cex.axis=.5)
+```
+
+**As density lines:**
+
+```R
+getBamSignal <- function(f, gr, bins=101, region=500, filetype="bam") {
+  # extend regions and read bam file. Center around the middle of the window
+  gr.center <- start(gr) + floor(width(gr) / 2)
+  gr2 <- GRanges(seqnames(gr), IRanges(gr.center - region, gr.center + region), strand=strand(gr))
+  cvg <- switch(filetype,
+                bam =coverage(readGAlignments(f, param=ScanBamParam(which=gr2))),
+                bw  =coverage(rtracklayer::import.bw(f)),
+                bed =coverage(rtracklayer::import.bed(f))
+  )
+  gr2 <- gr2[gr2 %within% reduce(GRanges(names(unlist(ranges(cvg))), unlist(ranges(cvg))))]
+  
+  # calcualte the coverage
+  x <- do.call(rbind, mclapply(gr2, function(x) {
+    # get the coverage around the motif
+    if(as.character(strand(x)) == "+")
+      x <- unlist(cvg[x], use.names=FALSE)
+    else
+      x <- rev(unlist(cvg[x], use.names=FALSE))
+
+    # uncompress the coverage and split the region in 101 windows, and report the avg coverage per bin
+    bins <- cut(1:length(x), bins)
+    x <- c(rep(runValue(x), runLength(x))) # uncompress
+    x <- tapply(x, bins, mean)             # aggregate reads per bin
+  }))
+
+  # aggregate the signal per bin and express it relative to the max
+  avg <- apply(x, 2, sum)
+  avg / max(avg)
+}
+
+# call the function for all bams in a folder
+f <- list.files(pattern="\\.bam$")
+motif_signal <- mcMap(function(f, ft) getBamSignal(f, motif[strand(motif) == "+"], filetype=ft),
+                      f, gsub(".+(bed|bw|bam)$", "\\1", f), mc.cores=4)
+
+# and plot
+df <- melt(lapply(motif_signal, as.matrix))
+ggplot(df) +
+  geom_line(aes(x=as.numeric(Var1), y=value, color=L1, group=L1)) + #, lty=L1)) +
+  scale_color_brewer("", palette="Set1") +
+  scale_x_continuous(breaks=c(1, 26, 51, 76, 101), labels=c("-500", "-250", "CTCF", "+250", "+500")) +
+  xlab("") + ylab("relative signal") + ggtitle("relative signal of CTCF positive BLISS hotspots") +
+  theme_bw()
+
 ```
 
 #### Distribution of peaks along the genome
