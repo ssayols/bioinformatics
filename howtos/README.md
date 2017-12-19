@@ -20,6 +20,7 @@
    * [SICER](#sicer)
 * [Retrieve chromosome sizes](#retrieve-chromosome-sizes)
 * [Submit jobs to random machines in the cluster](#submit-jobs-to-random-machines-in-the-cluster)
+* [Count reads on repetitive regions](#count-reads-on-repetitive-regions)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -677,3 +678,62 @@ counts <- summarizeOverlaps(exonicParts,
                             BPPARAM=MulticoreParam(workers=6))
 ```
 
+## Count reads on repetitive regions
+
+Let's do it in two parts:
+
+* Count the number of TTAGGG repetitions:
+
+```sh
+for f in *.fastq.gz; do
+    echo $f
+    counts=$(zcat $f | awk 'NR%4==2' | perl -aln -e'print $c = () = $F[0] =~ /(TTAGGG|CCCTAA)/gi' | sort | uniq -c | paste -s)
+    echo "$f,$counts" >> ttaggg.csv
+done
+```
+
+* Plot showing the fraction of TTAGGG reads:
+
+```R
+library(ggplot2)
+library(reshape)
+library(RColorBrewer)
+library(WriteXLS)
+
+CWD <- "/fsimb/groups/imb-bioinfocf/projects/butter/imb_Butter_2014_03_U2OS_ChIP_51set/"
+setwd(CWD)
+
+pdf("./results/ttaggg.pdf")
+
+# prepare data structure
+ttaggg <- read.csv("./rawdata/ttaggg.csv", head=F)
+files  <- ttaggg$V1
+ttaggg <- lapply(ttaggg$V2, function(x) {
+    x <- strsplit(gsub("^\\s+|\\s+$", "", unlist(strsplit(x, "\t"))), " ")
+    positions <- as.integer(sapply(x, function(x) x[2]))
+    counts    <- as.integer(sapply(x, function(x) x[1]))
+    out <- numeric(9)   # has to match max(repeats) + 1; check before
+    out[positions + 1] <- counts
+    out
+})
+
+ttaggg <- do.call(rbind, ttaggg)
+colnames(ttaggg) <- as.character(0:8)
+rownames(ttaggg) <- gsub("\\.fastq\\.gz", "", files)
+
+ttaggg.perc <- apply(ttaggg[, -1], 1, function(x) x / sum(x))    # fraction of 1+ repeats!!
+
+out <- list(absolute=as.data.frame(ttaggg),
+            fraction=as.data.frame(t(ttaggg.perc)))
+WriteXLS("out", "./results/ttaggg.xls", row.names=TRUE)
+
+# do plot
+df <- melt(ttaggg.perc)
+ggplot(df, aes(x=X2, y=value, fill=as.factor(X1))) +
+    geom_bar(stat="identity") +
+    scale_fill_brewer("repeats", palette="Greens") +
+    xlab("") + ylab("fraction") + coord_flip() + ggtitle("U2OS ChIP") +
+    theme_bw()
+
+dev.off()
+```
