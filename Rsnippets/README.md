@@ -68,6 +68,7 @@
    * [GenomicRanges](#genomicranges)
    * [Converting GTF to GFF3](#converting-gtf-to-gff3)
    * [Flatten a GFF/GTF file by gene_id (and get transcript lengths)](#flatten-a-gffgtf-file-by-gene_id-and-get-transcript-lengths)
+   * [Get genome wide distribution of features](#get-genome-wide-distribution-of-features)
    * [Download a dataset from GEO using GEOquery](#download-a-dataset-from-geo-using-geoquery)
    * [Get the genomic sequence of a region and plot its nucleotide content](#get-the-genomic-sequence-of-a-region-and-plot-its-nucleotide-content)
    * [Gene set enrichment analysis](#gene-set-enrichment-analysis)
@@ -1606,6 +1607,44 @@ Tag a data.frame with the just produced transcript lengths. (watch out to use th
 ```R
 DE.data$transcript_length <- gene.lengths[match(DE.data$gene_id, names(gene.lengths))]
 
+```
+
+### Get genome wide distribution of features
+
+Based on the info annotated in TxDb.Hsapiens.UCSC.hg19.knownGene.
+
+Approximation. Projected into one single strand.
+
+```R
+library(TxDb.Hsapiens.UCSC.hg19.knownGene)
+
+pr <- local({
+  x <- promoters(txdb)
+  strand(x) <- "*"
+  reduce(x)
+})
+
+ex <- local({
+  x <- exons(txdb)
+  strand(x) <- "*"
+  reduce(setdiff(reduce(x), pr))
+})
+
+it <- local({
+  x <- unlist(intronsByTranscript(txdb))
+  strand(x) <- "*"
+  reduce(setdiff(reduce(setdiff(reduce(x), ex)), pr))
+})
+
+ig <- gaps(reduce(c(ex, it, pr)))
+ig <- ig[strand(ig) == "*"]  # take only one strand
+
+# add location info and merge regions
+pr$type <- "promoter"
+ex$type <- "exon"
+it$type <- "intron"
+ig$type <- "intergenic"
+regions <- c(pr, ex, it, ig)
 ```
 
 ### Download a dataset from GEO using GEOquery
