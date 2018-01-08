@@ -41,6 +41,7 @@
    * [Ellipse around the CI95](#ellipse-around-the-ci-95)
    * [Boxplot with average and standard deviation](#boxplot-with-average-and-standard-deviation)
    * [Histogram and density function in the same plot using ''ggplot''](#histogram-and-density-function-in-the-same-plot-using-ggplot)
+   * [Pairs plot (nice)](#pairs-plot-nice)
    * [Placing multiple plots in the same device](#placing-multiple-plots-in-the-same-device)
    * [Placing multiple plots in the same device using ''ggplot'' the ''grid'' package](#placing-multiple-plots-in-the-same-device-using-ggplot-the-grid-package)
    * [Venn Diagrams](#venn-diagrams)
@@ -849,6 +850,7 @@ xi <- 0.1 + seq(b$n)
 points(xi, avg, col="orange", pch=18)
 arrows(xi, avg - sdev, xi, avg + sdev, code=3, col="orange", angle=75, length=.1)
 ```
+
 ### Histogram and density function in the same plot using ''ggplot''
 
 ```R
@@ -864,8 +866,44 @@ p <- ggplot(df,aes(x=vals,fill=cond)) +
 print(p)
 ```
 
+### Pairs plot (nice)
+
+```R
+#' panel.smooth for a pairs() plot
+#' Modified version of the base function panel.smooth, in order to accomodate a
+#' density color palette.
+#' @param x vector of numbers corresponding to the x coordinates
+#' @param y vector of numbers corresponding to the y coordinates
+#' @param ... rest of the parameters that go to points() and lines()
+#'
+#' @examples
+#'   pairs(x, panel=panel.smooth.dens, diag.panel=panel.hist, pch=16, col="#00000050")
+panel.smooth.dens <- function (x, y, bg=NA, pch=par("pch"), cex=1,
+                               col.smooth="red", span=2/3, iter=3, ...)
+{
+  ok <- is.finite(x) & is.finite(y)
+  if(any(ok)) {
+    dcols <- densCols(x=x[ok], y=y[ok], colramp=viridis, nbin=100)
+    points(x[ok], y[ok], pch=pch, col=dcols, bg=bg, cex=cex)
+    lines(stats::lowess(x[ok], y[ok], f=span, iter=iter), col=col.smooth, ...)
+  }
+}
+
+#' panel.hist for a pairs() plot
+#' Taken literally from examples(pairs)
+#' @param x vector of numbers
+panel.hist <- function(x, ...) {
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(usr[1:2], 0, 1.5) )
+    h <- hist(x, plot = FALSE)
+    breaks <- h$breaks; nB <- length(breaks)
+    y <- h$counts; y <- y/max(y)
+    rect(breaks[-nB], 0, breaks[-1], y, ...)
+}
+```
+
 ### Placing multiple plots in the same device
-This solution makes use of the basic R plotting capabilities, through the ''graphics'' package:
+This solution makes use of the basic R plotting capabilities, through the `graphics` package:
 
 ```R
 # define grid (layout matrix)
@@ -1135,7 +1173,7 @@ print(p)
 ```
 
 #### ggplot2 color points by density
-Slightly different approach, using the native geom_point colored by density. Equivalent to using `densCols()` from base.
+Slightly different approach, using the native `geom_point` colored by density. Equivalent to using `densCols()` from base.
 
 ```R
 # from Kamil Slowikowski (http://slowkow.com/notes/ggplot2-color-by-density/)
