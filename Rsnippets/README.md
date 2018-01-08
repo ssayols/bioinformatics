@@ -917,6 +917,75 @@ Second option, use the ''gridExtra'' package:
  sidebysideplot <- grid.arrange(plot1, plot2, ncol=2)
 ```
 
+### Heatmap + Upset
+Plot a heatmap annotated with an upset plot.
+
+```R
+##' Heatmap + Upset function
+##'
+##' Plot a heatmap annotated with an upset plot
+##'
+##' @param counts Counts matrix
+##' @param gs List of gene sets
+##' @param main Plot title
+##'
+##' @example
+##' # Create some demo data
+##' counts <- matrix(rpois(600, 10), ncol=6) # counts matrix with 100 genes, 2 conditions and 3 replicates
+##' colnames(counts) <- c("A1", "A2", "A3", "B1", "B2", "B3")
+##' rownames(counts) <- paste("gene", 1:100)
+##'
+##' genesets <- list(set1=c("gene 1" , "gene 2" , "gene 34", "gene 11", "gene 66"),
+##'                  set2=c("gene 2" , "gene 3" , "gene 35"),
+##'                  set3=c("gene 34", "gene 66", "gene 67", "gene 68"))
+##'
+##' heatmap_upset(counts, genesets, "test")
+heatmap_upset <- function(counts, gs, main="") {
+
+    require(ggplot2)
+    require(grid)
+    require(reshape2)
+
+    # get the gene expression per gene set
+    x <- lapply(gs, function(genes) {
+        counts[intersect(rownames(counts), genes), ]
+    })
+
+    # remove empty gene sets and melt
+    x     <- x[sapply(x, nrow) > 0]
+    df    <- melt(x)
+    colnames(df) <- c("gene", "sample", "counts", "geneset")
+
+    # calculate how the rows (genes) cluster
+    x <- do.call(rbind, x)
+    x <- unique(x, MARGIN=1)
+    h <- hclust(dist(x))
+    df$gene <- factor(df$gene, levels=h$labels[h$order])
+
+    # plot heatmap
+    p1 <- ggplot(df, aes(sample, gene)) +
+            geom_tile(aes(fill=counts), colour="white") +
+            scale_fill_distiller(palette="RdBu", direction=1, limits=c(0, max(df$counts))) +
+            ggtitle(main) +
+            xlab("") +
+            theme_minimal() +
+            theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1)) +
+            theme(legend.position="left")
+
+    # plot upset
+    p2 <- ggplot(df, aes(geneset, gene)) +
+            geom_point() +
+            ggtitle("gene belongs to set") +
+            xlab("") +
+            theme_minimal() +
+            theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1)) +
+            theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
+
+    grid.newpage()
+    grid.draw(cbind(ggplotGrob(p1), ggplotGrob(p2), size="last"))
+}
+```
+
 ### Venn Diagrams
 Several Bioconductor packages are available for Venn Diagrams, "VennDiagram" is able to produce high quality proportional diagrams.
 
