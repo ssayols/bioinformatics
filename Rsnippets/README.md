@@ -36,6 +36,7 @@
       * [Color palettes with RColorBrewer](#color-palettes-with-rcolorbrewer)
       * [A very large (255) high contrast color palette](#a-very-large-255-high-contrast-color-palette)
    * [Spaghetti plot: graphs showing regression uncertainty](#spaghetti-plot-graphs-showing-regression-uncertainty)
+   * [Smooth spline ggplot2](#smooth-spline-ggplot2)
    * [MA plot](#ma-plot)
    * [Circle](#circle)
    * [Ellipse around the CI95](#ellipse-around-the-ci-95)
@@ -44,6 +45,7 @@
    * [Pairs plot (nice)](#pairs-plot-nice)
    * [Placing multiple plots in the same device](#placing-multiple-plots-in-the-same-device)
    * [Placing multiple plots in the same device using ''ggplot'' the ''grid'' package](#placing-multiple-plots-in-the-same-device-using-ggplot-the-grid-package)
+   * [Heatmap + Upset](#heatmap-upset)
    * [Venn Diagrams](#venn-diagrams)
    * [Calling gnuplot](#calling-gnuplot)
    * [Density 2d plots](#density-2d-plots)
@@ -789,6 +791,26 @@ ci <- do.call(rbind, ci)
 #fit <- loess(ci$y ~ ci$x)  # takes forever to compute
 #lines(ci$x[order(ci$x)], fit$fitted[order(ci$x)], col="red", lwd=2)
 lines(lowess(ci$y ~ ci$x, f=1/3), col="red", lwd=2)
+```
+
+### Smooth spline ggplot2
+
+Use a different fit function from the predefined ones in `geom_smooth()`.
+
+```R
+# From Hadley, https://groups.google.com/forum/#!topic/ggplot2/FJ36CJH-ODo
+
+smooth.spline2 <- function(formula, data, ...) {
+  mat <- model.frame(formula, data)
+  smooth.spline(mat[, 2], mat[, 1])
+}
+
+predictdf.smooth.spline <- function(model, xseq, se, level) {
+  pred <- predict(model, xseq)
+  data.frame(x = xseq, y = pred$y)
+}
+
+qplot(mpg, wt, data = mtcars) + geom_smooth(method="smooth.spline2", se=F)
 ```
 
 ### MA plot
