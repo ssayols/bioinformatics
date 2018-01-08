@@ -50,6 +50,7 @@
       * [smoothScatter](#smoothscatter)
       * [density2d (contour plot)](#density2d-contour-plot)
       * [ggplot2 density2d](#ggplot2-density2d)
+      * [ggplot2 color points by density](#ggplot2-color-points-by-density)
       * [3d plot](#3d-plot)
    * [PCA BiPlot with ggplot2 and Interactive plots in a shiny app](#pca-biplot-with-ggplot2-and-interactive-plots-in-a-shiny-app)
    * [Raster kegg PNG pathways within a coordinate system](#raster-kegg-png-pathways-within-a-coordinate-system)
@@ -1062,6 +1063,27 @@ scale_x_continuous(breaks=s,labels=as.character(10^s)) +
 xlab("expression level (reads/kbp)") + ylab("duplication level (% duplicate reads)") +
 theme_bw()
 print(p)
+```
+
+#### ggplot2 color points by density
+Slightly different approach, using the native geom_point colored by density. Equivalent to using `densCols()` from base.
+
+```R
+# from Kamil Slowikowski (http://slowkow.com/notes/ggplot2-color-by-density/)
+# @param x A numeric vector.
+# @param y A numeric vector.
+# @param n Create a square n by n grid to compute density.
+# @return The density within each square.
+# @examples
+#   dat$density <- get_density(dat$x, dat$y)
+#   ggplot(dat) + geom_point(aes(x, y, color = density)) + scale_color_viridis()
+get_density <- function(x, y, n = 100) {
+  dens <- MASS::kde2d(x = x, y = y, n = n)
+  ix <- findInterval(x, dens$x)
+  iy <- findInterval(y, dens$y)
+  ii <- cbind(ix, iy)
+  return(dens$z[ii])
+}
 ```
 
 #### 3d plot
