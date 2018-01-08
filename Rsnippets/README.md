@@ -128,14 +128,14 @@ This pipeline uses ''lumi'' and ''IlluminaHumanMethylation450k.db'' packages fro
 
 ```R
  #options(mc.cores=12)
- library("lumi")		#analisi d'arrays illumina
+ library("lumi")    #analisi d'arrays illumina
  library("IlluminaHumanMethylation450k.db")
 
  samplesheet <- read.csv("Curelung_SampleSheet.csv")
- barcodes <- paste(samplesheet$Sentrix_ID,samplesheet$Sentrix_Position,sep="_")
- #idats <- methylumIDAT(barcodes=barcodes,parallel=T,idatPath=paste(getwd(),"idats",sep="/"))
- idats <- methylumIDAT(barcodes=barcodes,idatPath=paste(getwd(),"idats",sep="/"))
- dades <- as(idats,"MethyLumiM")
+ barcodes <- paste(samplesheet$Sentrix_ID, samplesheet$Sentrix_Position, sep="_")
+ #idats <- methylumIDAT(barcodes=barcodes, parallel=T, idatPath=paste(getwd(), "idats", sep="/"))
+ idats <- methylumIDAT(barcodes=barcodes, idatPath=paste(getwd(), "idats", sep="/"))
+ dades <- as(idats, "MethyLumiM")
 
  # Annotate the samples with some metainfo
  pData(dades)$sampleID <- samplesheet$Sample_Name
@@ -143,6 +143,7 @@ This pipeline uses ''lumi'' and ''IlluminaHumanMethylation450k.db'' packages fro
 ```
 
 #### Normalization
+
 It can be done in a three steps procedure using the ''lumi'' package from ''bioconductor'':
 
 * Color balance adjustment
@@ -153,20 +154,20 @@ It can be done in a three steps procedure using the ''lumi'' package from ''bioc
  # color balance adjustment: normalization between two color channels
  dades.c.adj <- lumiMethyC(dades)
  # background substraction
- dades.b.adj <- lumiMethyB(dades.c.adj,method="bgAdjust2C")
+ dades.b.adj <- lumiMethyB(dades.c.adj, method="bgAdjust2C")
  # Perform quantile normalization based on color balance adjusted data
- dades.c.quantile <- lumiMethyN(dades.b.adj,method='quantile')
+ dades.c.quantile <- lumiMethyN(dades.b.adj, method='quantile')
 ```
 
 #### Quality control
 
 ```R
- plotColorBias1D(dades,channel='sum')
- plotColorBias1D(dades.c.quantile,channel='sum',main="Compare density distribution of two color channels - Norm")
- boxplotColorBias(dades,channel='sum')
- boxplotColorBias(dades.c.quantile,channel='sum',main="Boxplots of Red and Green color channels - Norm")
- plotColorBias2D(dades,selSample=1, cex=2)
- plotColorBias2D(dades.c.quantile,selSample=1,cex=2,main="Norm")
+ plotColorBias1D(dades, channel='sum')
+ plotColorBias1D(dades.c.quantile, channel='sum', main="Compare density distribution of two color channels - Norm")
+ boxplotColorBias(dades, channel='sum')
+ boxplotColorBias(dades.c.quantile, channel='sum', main="Boxplots of Red and Green color channels - Norm")
+ plotColorBias2D(dades, selSample=1, cex=2)
+ plotColorBias2D(dades.c.quantile, selSample=1, cex=2, main="Norm")
 ```
 
 #### Differential methylation using limma
@@ -174,22 +175,22 @@ It can be done in a three steps procedure using the ''lumi'' package from ''bioc
 ```R
  ## filter non variant probes by IQR
  eset <- exprs(dades.c.quantile)
- eset.IQR <- varFilter(eset,var.func=IQR,var.cutoff=0.5,filterByQuantile=TRUE)
+ eset.IQR <- varFilter(eset, var.func=IQR, var.cutoff=0.5, filterByQuantile=TRUE)
 
  # Define design and contrast matrices
  design <- model.matrix(~0 + pData(dades.c.quantile)$grup)
  rownames(design) <-pData(x)$sampleID
- colnames(design) <- c("G1","G2")
- cont.matrix <- makeContrasts(Grup1vsGrup2=G1-G2,levels=design)
+ colnames(design) <- c("G1", "G2")
+ cont.matrix <- makeContrasts(Grup1vsGrup2=G1-G2, levels=design)
 
  # Get the differentially methylated probes by linear model + bayes stats
  # Model lineal i eBayes
- fit1 <- lmFit(eset.IQR,design)
- fit2 <- contrasts.fit(fit1,cont.matrix)
+ fit1 <- lmFit(eset.IQR, design)
+ fit2 <- contrasts.fit(fit1, cont.matrix)
  fit3 <- eBayes(fit2)
 
  # Rank the probes
- CG <- topTable(fit3,adjust="fdr",number=nrow(fit3))	# adjust FDR
+ CG <- topTable(fit3, adjust="fdr", number=nrow(fit3))  # adjust FDR
 ```
 
 ### Affymetrix® Genome-Wide Human SNP Array 6.0 (and probably others)
@@ -201,7 +202,7 @@ This is a parallelized version using ''snow'' and 16 cores to analyze SNP arrays
  library(foreach)
  library(snow)
  library(doSNOW)
- registerDoSNOW(makeCluster(16,type="SOCK"))
+ registerDoSNOW(makeCluster(16, type="SOCK"))
  #library(MC)
  #library(doMC)
  #registerDoMC(16)
@@ -209,18 +210,18 @@ This is a parallelized version using ''snow'' and 16 cores to analyze SNP arrays
  # read arrays
  library(oligo)
  library(pd.genomewidesnp.6)
- #library(human650v3aCrlmm)	# Illumina HumanHap650Y
- #library(human550v3bCrlmm)	# Illumina HumanHap550Y
+ #library(human650v3aCrlmm)  # Illumina HumanHap650Y
+ #library(human550v3bCrlmm)  # Illumina HumanHap550Y
 
- fullFilenames <- list.celfiles("arrays",full.names=TRUE)
- outputDir <- file.path(getwd(),"crlmmResults")
+ fullFilenames <- list.celfiles("arrays", full.names=TRUE)
+ outputDir <- file.path(getwd(), "crlmmResults")
 
- crlmm(fullFilenames,outputDir,pkgname="pd.genomewidesnp.6")
- #crlmm(fullFilenames,outputDir,pkgname="human650v3aCrlmm")
- #crlmm(fullFilenames,outputDir,pkgname="human550v3bCrlmm")
+ crlmm(fullFilenames, outputDir, pkgname="pd.genomewidesnp.6")
+ #crlmm(fullFilenames, outputDir, pkgname="human650v3aCrlmm")
+ #crlmm(fullFilenames, outputDir, pkgname="human550v3bCrlmm")
  crlmmOut <- getCrlmmSummaries(outputDir)
 
- write.csv(calls(crlmmOut),file="SNP.csv")
+ write.csv(calls(crlmmOut), file="SNP.csv")
 ```
 
 ### Affymetrix expression arrays
@@ -232,15 +233,15 @@ This protocol uses the ''affy'' package from ''bioconductor''
 #### Read data from raw CEL files
 
 ```R
- ## Load libraries
+ # Load libraries
  library("affy")       #Import and normalize data
  library("limma")      #Differential expression
  library("genefilter") #Gene filtering
 
- ## Import sample description from targets.txt file
+ # Import sample description from targets.txt file
  targets <- readTargets("arrays/targets.txt", row.names="FileName")
 
- ## Import .CEL files
+ # Import .CEL files
  data <- ReadAffy(filenames=targets$FileName)
 ```
 
@@ -273,8 +274,8 @@ Almost useless quality control information:
          main="Boxplot Before Normalization",
          col = "lightgrey")
 
- # boxplot de datos normalizados         
- exprseset <- as.data.frame(exprs(eset))         
+ # boxplot de datos normalizados
+ exprseset <- as.data.frame(exprs(eset))
  boxplot(
          data.frame(exprseset),
          main="Boxplot After Normalization (log scale)",
@@ -284,18 +285,18 @@ Almost useless quality control information:
 #### Differential expression using limma
 
 ```R
- ## filter non variant probes by IQR
+ # filter non variant probes by IQR
  esetIQR <- varFilter(eset, var.func=IQR, var.cutoff=0.5, filterByQuantile=TRUE)
 
  # Define design and contrast matrices
  design <- model.matrix(~0 + as.factor(targets$Classes))
- colnames(design) <- c("AA","CA","HC")
+ colnames(design) <- c("AA", "CA", "HC")
  rownames(design) <- targets$FileName
- cont.matrix<-makeContrasts(AAvsCA=AA-CA,AAvsHC=AA-HC,CAvsHC=CA-HC,levels=design)
+ cont.matrix<-makeContrasts(AAvsCA=AA-CA, AAvsHC=AA-HC, CAvsHC=CA-HC, levels=design)
 
  # Get the differentially methylated probes by linear model + bayes stats
  # Model lineal and eBayes
- fit1 <- lmFit(esetIQR,design)
+ fit1 <- lmFit(esetIQR, design)
  fit2 <- contrasts.fit(fit1, cont.matrix)
  fit3 <- eBayes(fit2)
 
@@ -306,7 +307,9 @@ Almost useless quality control information:
 ## ChIP-seq workflows
 
 ### QC
+
 #### FRIP
+
 ```R
 library(rtracklayer)
 library(GenomicRanges)
@@ -347,17 +350,17 @@ frip <- function(reads, peaks, singleEnd=T) {
     return(result)
 }
 
-f <- list.files(IN,pattern="*.tsv")
-x <- mclapply(f,function(f) {
-    x <- readLines(paste0(IN,f),n=10)
-    x <- unlist(strsplit(x[grepl("# Command line:",x)]," "))
-    f.bam <- x[grep("-t",x) + 1]
-    peaks <- read.delim(paste0(IN,f),comment.char="#")
-    peaks <- with(peaks,GRanges(chr,IRanges(start,end)))
-    frip(f.bam,peaks)
-},mc.cores=CORES)
+f <- list.files(IN, pattern="*.tsv")
+x <- mclapply(f, function(f) {
+    x <- readLines(paste0(IN, f), n=10)
+    x <- unlist(strsplit(x[grepl("# Command line:", x)], " "))
+    f.bam <- x[grep("-t", x) + 1]
+    peaks <- read.delim(paste0(IN, f), comment.char="#")
+    peaks <- with(peaks, GRanges(chr, IRanges(start, end)))
+    frip(f.bam, peaks)
+}, mc.cores=CORES)
 
-write.csv(x,file="./qc/frip.csv",row.names=F)
+write.csv(x, file="./qc/frip.csv", row.names=F)
 ```
 
 ### Get blacklisted regions from UCSC
@@ -378,6 +381,7 @@ blcklst <- with(blcklst, GRanges(chrom, IRanges(chromStart, chromEnd)))
 ### Differential binding analysis
 
 #### Prepare the targets file
+
 <pre>
 SampleID     Condition  Replicate  bamReads                       ControlID     bamControl                 Peaks                      PeakCaller
 AE_1_h2az    AE         1          ./mapped/AE_1_h2az.bam         AE_1_input    ./mapped/AE_1_input.bam    ./results/AE_1_h2az.xls    macs
@@ -391,6 +395,7 @@ ISC_2_h2az   ISC        2          ./mapped/ISC_2_h2az.bam        ISC_2_input   
 </pre>
 
 #### Prepare the contrasts file
+
 <pre>
 E145vsE125=(E145-E125)
 ISCvsE145=(ISC-E145)
@@ -398,6 +403,7 @@ AEvsISC=(AE-ISC)
 </pre>
 
 #### DiffBind (Bioconductor)
+
 ```R
 library(DiffBind)
 
@@ -442,6 +448,7 @@ dev.off()
 And continue now with the next step: Annotate peaks.
 
 ### Annotate peaks
+
 Supose h2az.DB is a list with peaks read from many MACS output files (.xls):
 
 ```R
@@ -452,13 +459,13 @@ library(TxDb.Mmusculus.UCSC.mm9.knownGene)
 h2az.DB <- lapply(list.files(pattern=".xls$"), read.delim, comment.char="#")
 
 txdb <- TxDb.Mmusculus.UCSC.mm9.knownGene
-ann <- lapply(h2az.DB, annotatePeak, TxDb=txdb, annoDb="org.Mm.eg.db", tssRegion=c(-3000,3000), verbose=T)
+ann <- lapply(h2az.DB, annotatePeak, TxDb=txdb, annoDb="org.Mm.eg.db", tssRegion=c(-3000, 3000), verbose=T)
 lapply(ann, plotAnnoBar)
 lapply(ann, plotDistToTSS)
 ann <- lapply(ann, as.data.frame)
 
 WriteXLS("ann", ExcelFileName="./results/timecourse_h2az.xls",
-         SheetNames=gsub("(.+)=\\((.+)\\)", "\\2", conts[,1]))
+         SheetNames=gsub("(.+)=\\((.+)\\)", "\\2", conts[, 1]))
 ```
 
 ### Motif discovery
@@ -477,7 +484,7 @@ TOP <- 50   # take only top peaks (values >50 usually make GADEM cracsh with seg
 bed <- read.table(paste0(PROJECT, "/GSE51142/results/macs2/zbtb10.vs.igg_peaks.xls"), comment="#", sep="\t", head=T)
 sel <- rev(order(bed$X.log10.qvalue.))[1:TOP]
 bed$chr <- paste0("chr", bed$chr)
-peaks <- with(bed[sel,], RangedData(IRanges(start, end), space=chr))
+peaks <- with(bed[sel, ], RangedData(IRanges(start, end), space=chr))
 gadem <- GADEM(peaks, verbose=1, genome=Hsapiens)
 ```
 
@@ -552,7 +559,7 @@ chip2     <- GRanges(chip2$chr, IRanges(start=chip2$start, end=chip2$end))
 chip2.3kb <- GRanges(seqnames(chip2), IRanges(start=chip2$summit - 1500, end=chip$summit + 1500))
 tagMatrix <- getTagMatrix(chip1, windows=chip2.3kb)
 tagMatrix <- t(apply(tagMatrix, 1, function(x) x/max(x))) # normalize, as in ChIPseeker:::peakHeatmap.internal
-tagMatrix <- tagMatrix[order(rowSums(tagMatrix)), ]       # sort by signal 
+tagMatrix <- tagMatrix[order(rowSums(tagMatrix)), ]       # sort by signal
 
 image(x=-1500:1500, y=1:nrow(tagMatrix), z=t(tagMatrix), useRaster=TRUE, col=c("black", "yellow"),
       yaxt="n", xaxt="n", ylab="", xlab="")
@@ -573,7 +580,7 @@ getBamSignal <- function(f, gr, bins=101, region=500, filetype="bam") {
                 bed =coverage(rtracklayer::import.bed(f))
   )
   gr2 <- gr2[gr2 %within% reduce(GRanges(names(unlist(ranges(cvg))), unlist(ranges(cvg))))]
-  
+
   # calcualte the coverage
   x <- do.call(rbind, mclapply(gr2, function(x) {
     # get the coverage around the motif
@@ -716,15 +723,15 @@ require("RColorBrewer")
 display.brewer.all()
 
 # show the palette we are planning
-display.brewer.pal(9,"Oranges")
+display.brewer.pal(9, "Oranges")
 
 # use it as a gradient palette for heatmaps
-hmcol   <- colorRampPalette(brewer.pal(9,"Oranges"))(100)
-heatmap.2(mat,trace="none",col=rev(hmcol),margin=c(13,13))
+hmcol   <- colorRampPalette(brewer.pal(9, "Oranges"))(100)
+heatmap.2(mat, trace="none", col=rev(hmcol), margin=c(13, 13))
 
 # use it to display categorical data
-plot(x=x$x[,1],y=x$x[,2],pch=16,cex=.5,
-     col=brewer.pal(length(levels(condition)),"Set1")[condition])
+plot(x=x$x[, 1], y=x$x[, 2], pch=16, cex=.5,
+     col=brewer.pal(length(levels(condition)), "Set1")[condition])
 ```
 
 #### A very large (255) high contrast color palette
@@ -818,16 +825,16 @@ qplot(mpg, wt, data = mtcars) + geom_smooth(method="smooth.spline2", se=F)
 Visual representation of log ratios (M) and mean average (A) intensities. Useful to compare bias between two samples or in a two-channels array.
 
 ```R
- maplot <- function(x,y,...){
- 	M=log2(y/x)
- 	A=(log2(y)+log2(x))/2
- 	plot(A,M,...)
- 	fit=loess(M~A,span=1/3)
- 	o=order(A)
- 	lines(A[o],fit$fitted[o],col=2)
+ maplot <- function(x, y, ...){
+   M=log2(y/x)
+   A=(log2(y)+log2(x))/2
+   plot(A, M, ...)
+   fit=loess(M~A, span=1/3)
+   o=order(A)
+   lines(A[o], fit$fitted[o], col=2)
  }
 
- maplot(y[wh,2],y[wh,3],ylim=c(-5,5))
+ maplot(y[wh, 2], y[wh, 3], ylim=c(-5, 5))
 ```
 
 ### Circle
@@ -835,31 +842,31 @@ Visual representation of log ratios (M) and mean average (A) intensities. Useful
 There is no primitive function to draw a circle in R.
 
 ```R
-circle <- function(x,y,r,...) {	# col=fill_colour,border=outline_colour
-    polygon(x=x + r*cos( seq(0,2*pi, length.out=360) ),
-            y=y + r*sin( seq(0,2*pi, length.out=360) ),
+circle <- function(x, y, r, ...) {  # col=fill_colour, border=outline_colour
+    polygon(x=x + r*cos( seq(0, 2*pi, length.out=360) ),
+            y=y + r*sin( seq(0, 2*pi, length.out=360) ),
             ...)
 }
 ```
 
 ### Ellipse around the CI95
 
-Draw an ellipse describing the CI 95% of some (x,y) points. Useful to describe groups when reducing to only a couple of components (through a PCA or MDS) large datasets with several independent variables describing a sample.
+Draw an ellipse describing the CI 95% of some (x, y) points. Useful to describe groups when reducing to only a couple of components (through a PCA or MDS) large datasets with several independent variables describing a sample.
 
 ```R
 ell95 <- function(df) {
-	require(ellipse)
-	require(ggplot2)
+  require(ellipse)
+  require(ggplot2)
 
-	ell <- data.frame()
-	for(g in levels(df$group)) {
-		e <- with(df[df$group==g,],ellipse(cor(x,y),scale=c(sd(x),sd(y)),centre=c(mean(x),mean(y))))
-		ell <- rbind(ell,cbind(as.data.frame(e),group=g))
-	}
-	ggplot(data=df,aes(x=x,y=y,colour=group)) + geom_point() + geom_path(data=ell,aes(x=x,y=y,colour=group))
+  ell <- data.frame()
+  for(g in levels(df$group)) {
+    e <- with(df[df$group==g, ], ellipse(cor(x, y), scale=c(sd(x), sd(y)), centre=c(mean(x), mean(y))))
+    ell <- rbind(ell, cbind(as.data.frame(e), group=g))
+  }
+  ggplot(data=df, aes(x=x, y=y, colour=group)) + geom_point() + geom_path(data=ell, aes(x=x, y=y, colour=group))
 }
 
-print(ell95(data.frame(x=x,y=y,group=A)))
+print(ell95(data.frame(x=x, y=y, group=A)))
 ```
 
 ### Boxplot with average and standard deviation
@@ -878,12 +885,12 @@ arrows(xi, avg - sdev, xi, avg + sdev, code=3, col="orange", angle=75, length=.1
 ```R
 require(ggplot2)
 
-df <- data.frame(cond=c(rep("before",length(before)),rep("after",length(after))),
-                 vals=c(before,after))
-p <- ggplot(df,aes(x=vals,fill=cond)) +
-	geom_histogram(aes(y=..density..,fill=cond),alpha=.5,position="identity") +
-	geom_density(alpha=.2) +
-	ggtitle(rownames(ic50)[i])
+df <- data.frame(cond=c(rep("before", length(before)), rep("after", length(after))),
+                 vals=c(before, after))
+p <- ggplot(df, aes(x=vals, fill=cond)) +
+  geom_histogram(aes(y=..density.., fill=cond), alpha=.5, position="identity") +
+  geom_density(alpha=.2) +
+  ggtitle(rownames(ic50)[i])
 
 print(p)
 ```
@@ -925,23 +932,24 @@ panel.hist <- function(x, ...) {
 ```
 
 ### Placing multiple plots in the same device
+
 This solution makes use of the basic R plotting capabilities, through the `graphics` package:
 
 ```R
 # define grid (layout matrix)
-layoutRatioWidth <- c(0.75,0.25); layoutRatioHeight <- c(0.25, 0.75)
-layout(matrix(c(2,1,0,3),nrow=2),widths=layoutRatioWidth,heights=layoutRatioHeight,respect=F)
+layoutRatioWidth <- c(0.75, 0.25); layoutRatioHeight <- c(0.25, 0.75)
+layout(matrix(c(2, 1, 0, 3), nrow=2), widths=layoutRatioWidth, heights=layoutRatioHeight, respect=F)
 # bottom left plot (#1 in layout matrix)
-par(mar=c(4,4,1,1))
-smoothScatter(x,y,xlab=xlab,ylab=ylab,main=f,xlim=c(0,20),ylim=c(0,20))
+par(mar=c(4, 4, 1, 1))
+smoothScatter(x, y, xlab=xlab, ylab=ylab, main=f, xlim=c(0, 20), ylim=c(0, 20))
 # top left plot (#2 in layout matrix)
-par(mar=c(1,4,1,1))
-z <- density(x,na.rm=T)
-plot(z$x,z$y,xlab="",ylab="Density",xaxt="n",yaxt="n",type="l",main="")
+par(mar=c(1, 4, 1, 1))
+z <- density(x, na.rm=T)
+plot(z$x, z$y, xlab="", ylab="Density", xaxt="n", yaxt="n", type="l", main="")
 # bottom right plot (#3 in layout matrix)
-par(mar=c(4,1,1,1))
-z <- density(y,na.rm=T)
-plot(z$y,z$x,ylab="",xlab="Density",xaxt="n",yaxt="n",type="l",main="")
+par(mar=c(4, 1, 1, 1))
+z <- density(y, na.rm=T)
+plot(z$y, z$x, ylab="", xlab="Density", xaxt="n", yaxt="n", type="l", main="")
 ```
 
 ### Placing multiple plots in the same device using ''ggplot'' the ''grid'' package
@@ -953,10 +961,10 @@ First option, using the ''grid'' package and creating ''viewports'':
 
  vplayout <- function(x, y) viewport(layout.pos.row = x, layout.pos.col = y)
 
- plot1 <- qplot(mtcars,x=wt,y=mpg,geom="point",main="Scatterplot of wt vs. mpg")
- plot2 <- qplot(mtcars,x=wt,y=disp,geom="point",main="Scatterplot of wt vs disp")
- plot3 <- qplot(wt,data=mtcars)
- plot4 <- qplot(wt,mpg,data=mtcars,geom="boxplot")
+ plot1 <- qplot(mtcars, x=wt, y=mpg, geom="point", main="Scatterplot of wt vs. mpg")
+ plot2 <- qplot(mtcars, x=wt, y=disp, geom="point", main="Scatterplot of wt vs disp")
+ plot3 <- qplot(wt, data=mtcars)
+ plot4 <- qplot(wt, mpg, data=mtcars, geom="boxplot")
 
  # 4 figures arranged in 2 rows and 2 columns
  grid.newpage()
@@ -978,28 +986,29 @@ Second option, use the ''gridExtra'' package:
 ```
 
 ### Heatmap + Upset
+
 Plot a heatmap annotated with an upset plot.
 
 ```R
-##' Heatmap + Upset function
-##'
-##' Plot a heatmap annotated with an upset plot
-##'
-##' @param counts Counts matrix
-##' @param gs List of gene sets
-##' @param main Plot title
-##'
-##' @example
-##' # Create some demo data
-##' counts <- matrix(rpois(600, 10), ncol=6) # counts matrix with 100 genes, 2 conditions and 3 replicates
-##' colnames(counts) <- c("A1", "A2", "A3", "B1", "B2", "B3")
-##' rownames(counts) <- paste("gene", 1:100)
-##'
-##' genesets <- list(set1=c("gene 1" , "gene 2" , "gene 34", "gene 11", "gene 66"),
-##'                  set2=c("gene 2" , "gene 3" , "gene 35"),
-##'                  set3=c("gene 34", "gene 66", "gene 67", "gene 68"))
-##'
-##' heatmap_upset(counts, genesets, "test")
+#' Heatmap + Upset function
+#'
+#' Plot a heatmap annotated with an upset plot
+#'
+#' @param counts Counts matrix
+#' @param gs List of gene sets
+#' @param main Plot title
+#'
+#' @example
+#' # Create some demo data
+#' counts <- matrix(rpois(600, 10), ncol=6) # counts matrix with 100 genes, 2 conditions and 3 replicates
+#' colnames(counts) <- c("A1", "A2", "A3", "B1", "B2", "B3")
+#' rownames(counts) <- paste("gene", 1:100)
+#'
+#' genesets <- list(set1=c("gene 1" , "gene 2" , "gene 34", "gene 11", "gene 66"),
+#'                  set2=c("gene 2" , "gene 3" , "gene 35"),
+#'                  set3=c("gene 34", "gene 66", "gene 67", "gene 68"))
+#'
+#' heatmap_upset(counts, genesets, "test")
 heatmap_upset <- function(counts, gs, main="") {
 
     require(ggplot2)
@@ -1047,28 +1056,29 @@ heatmap_upset <- function(counts, gs, main="") {
 ```
 
 ### Venn Diagrams
+
 Several Bioconductor packages are available for Venn Diagrams, "VennDiagram" is able to produce high quality proportional diagrams.
 
 ```R
 require(VennDiagram)
-## main argument a list of vectors
-## function will calculate overlap between the vectors and produce proportional Venn diagrams.
+# main argument a list of vectors
+# function will calculate overlap between the vectors and produce proportional Venn diagrams.
 
 venn.diagram(list(C = 1700:2500, B = 1:1800, A = 1571:2020),
-  fill=RColorBrewer::brewer.pal(3,"Set1"),alpha=.3,lwd=0,cex=1.5,cat.cex=1.5,
+  fill=RColorBrewer::brewer.pal(3, "Set1"), alpha=.3, lwd=0, cex=1.5, cat.cex=1.5,
   filename="~/Desktop/test2.tif")
 
 # display it on the screen
-img <- tiff::readTIFF("~/Desktop/test2.tif",native=T)
-plot(1:2,type="n",bty="n",axes=F,xlab="",ylab="")
-rasterImage(img,1,1,2,2)
+img <- tiff::readTIFF("~/Desktop/test2.tif", native=T)
+plot(1:2, type="n", bty="n", axes=F, xlab="", ylab="")
+rasterImage(img, 1, 1, 2, 2)
 ```
 
 To display it on the screen, alternatively one can set to 'filename' to NULL and use the grid package to draw the result:
 
 ```R
 img <- venn.diagram(list(C = 1700:2500, B = 1:1800, A = 1571:2020),
-  fill=RColorBrewer::brewer.pal(3,"Set1"),alpha=.3,lwd=0,cex=1.5,cat.cex=1.5,filename=NULL)
+  fill=RColorBrewer::brewer.pal(3, "Set1"), alpha=.3, lwd=0, cex=1.5, cat.cex=1.5, filename=NULL)
 grid.draw(img)
 ```
 
@@ -1089,9 +1099,9 @@ Venn3 <- function(set1, set2, set3, names)
 
   for (i in 1:length(universe))
   {
-    Counts[i,1] <- universe[i] %in% set1
-    Counts[i,2] <- universe[i] %in% set2
-    Counts[i,3] <- universe[i] %in% set3
+    Counts[i, 1] <- universe[i] %in% set1
+    Counts[i, 2] <- universe[i] %in% set2
+    Counts[i, 3] <- universe[i] %in% set3
   }
 
   vennDiagram( vennCounts(Counts) )
@@ -1121,10 +1131,10 @@ From R, one can pipe commands into gnuplot after opening a new session:
 ```R
 library(Rgnuplot)
 h1<-gp.init()
-gp.cmd(h1,"set terminal pngcairo  transparent enhanced font 'arial,10' fontscale 1.0 size 500, 350")
-gp.cmd(h1,"set output 'out.png'")	# set output file
-gp.cmd(h1,"set key left box")		# include a boxed legend
-gp.cmd(h1,"plot [-10:10] sin(x),atan(x) with points,cos(atan(x)) with impulses")
+gp.cmd(h1, "set terminal pngcairo  transparent enhanced font 'arial, 10' fontscale 1.0 size 500, 350")
+gp.cmd(h1, "set output 'out.png'")  # set output file
+gp.cmd(h1, "set key left box")    # include a boxed legend
+gp.cmd(h1, "plot [-10:10] sin(x), atan(x) with points, cos(atan(x)) with impulses")
 gp.close(h1)
 ```
 
@@ -1147,13 +1157,14 @@ dd <- grDevices:::.smoothScatterCalcDensity(data.frame(x=x, y=y), nbin=500)
 dens <- as.numeric(dd$fhat)
 dens <- dens[dens>0]
 colLegend <- data.frame(density=seq(min(dens), max(dens), len=10), color=I(colorRampPalette(dpal)(10)))
-par(mar=c(5,0,5,0))
-plot(NA, xlim=c(0,10), ylim=c(0,11), type="n", ann=FALSE, axes=FALSE)
+par(mar=c(5, 0, 5, 0))
+plot(NA, xlim=c(0, 10), ylim=c(0, 11), type="n", ann=FALSE, axes=FALSE)
 rect(0, 1:10, 1, 2:11, border=NA, col=colLegend$col)
 text(2, (1:10)+0.5, signif(colLegend$density, 2), adj=0)
 ```
 
 #### smoothScatter
+
 ```R
 smoothScatter(log10(DupMat[, "RPK"]), 100 * DupMat[, "dupRate"],
 xlab = "expression level (reads/kbp)", ylab = "duplication level (% duplicate reads)",
@@ -1161,11 +1172,12 @@ axes = FALSE, ...)
 ```
 
 #### density2d (contour plot)
+
 The kernel estimator is borrowed from the MASS package (Modern Applied Statistics with S), usually part of any R installation.
 
 ```R
 require(MASS)
-pal <- colorRampPalette(c('dark blue','blue','light blue','yellow','orange','red','dark red'))
+pal <- colorRampPalette(c('dark blue', 'blue', 'light blue', 'yellow', 'orange', 'red', 'dark red'))
 filled.contour(kde2d(log10(DupMat[, "RPK"]), 100 * DupMat[, "dupRate"]),
 xlab = "expression level (reads/kbp)", ylab = "duplication level (% duplicate reads)",
 axes = FALSE, color.palette=pal, ...)
@@ -1174,27 +1186,29 @@ axes = FALSE, color.palette=pal, ...)
 The palette can be modified with RColorBrewer to visually improve the result:
 ```R
 require(RColorBrewer)
-pal <- function(n) { colorRampPalette(brewer.pal(9,"Oranges"))(n) }
+pal <- function(n) { colorRampPalette(brewer.pal(9, "Oranges"))(n) }
 ```
 
 Something easier, leaving the estimation to smoothScatter():
 ```R
-cols <- colorRampPalette(c("black","blue","green","yellow","red"))
-smoothScatter(dm,nrpoints=10,nbin=500,colramp=cols)
+cols <- colorRampPalette(c("black", "blue", "green", "yellow", "red"))
+smoothScatter(dm, nrpoints=10, nbin=500, colramp=cols)
 ```
 
 #### ggplot2 density2d
+
 ```R
 df <- data.frame(x=log10(DupMat[, "RPK"]), y=100 * DupMat[, "dupRate"])
-p <- ggplot(df,aes(x,y)) +
+p <- ggplot(df, aes(x, y)) +
 stat_density2d(geom="tile", aes(fill = ..density..), contour = FALSE) +
-scale_x_continuous(breaks=s,labels=as.character(10^s)) +
+scale_x_continuous(breaks=s, labels=as.character(10^s)) +
 xlab("expression level (reads/kbp)") + ylab("duplication level (% duplicate reads)") +
 theme_bw()
 print(p)
 ```
 
 #### ggplot2 color points by density
+
 Slightly different approach, using the native `geom_point` colored by density. Equivalent to using `densCols()` from base.
 
 ```R
@@ -1216,9 +1230,10 @@ get_density <- function(x, y, n = 100) {
 ```
 
 #### 3d plot
+
 ```R
 require(MASS)
-pal <- colorRampPalette(c('dark blue','blue','light blue','yellow','orange','red','dark red'))
+pal <- colorRampPalette(c('dark blue', 'blue', 'light blue', 'yellow', 'orange', 'red', 'dark red'))
 persp(kde2d(log10(DupMat[, "RPK"]), 100 * DupMat[, "dupRate"]),
 theta = 30, phi = 30, expand = 0.5, ltheta = 120, shade = 0.75, ticktype = "detailed",
 xlab = "expression level (reads/kbp)",
@@ -1244,15 +1259,15 @@ PCbiplot <- function(PC, x="PC1", y="PC2") {
     plot <- plot + geom_hline(aes(yintercept=0), size=.2) + geom_vline(aes(xintercept=0), size=.2)
     datapc <- data.frame(varnames=rownames(PC$rotation), PC$rotation)
     mult <- min(
-        (max(data[,y]) - min(data[,y])/(max(datapc[,y])-min(datapc[,y]))),
-        (max(data[,x]) - min(data[,x])/(max(datapc[,x])-min(datapc[,x])))
+        (max(data[, y]) - min(data[, y])/(max(datapc[, y])-min(datapc[, y]))),
+        (max(data[, x]) - min(data[, x])/(max(datapc[, x])-min(datapc[, x])))
         )
     datapc <- transform(datapc,
             v1 = .7 * mult * (get(x)),
             v2 = .7 * mult * (get(y))
             )
     plot <- plot + coord_equal() + geom_text(data=datapc, aes(x=v1, y=v2, label=varnames), size = 5, vjust=1, color="red")
-    plot <- plot + geom_segment(data=datapc, aes(x=0, y=0, xend=v1, yend=v2), arrow=arrow(length=unit(0.2,"cm")), alpha=0.75, color="red")
+    plot <- plot + geom_segment(data=datapc, aes(x=0, y=0, xend=v1, yend=v2), arrow=arrow(length=unit(0.2, "cm")), alpha=0.75, color="red")
     plot + theme_bw()
 }
 
@@ -1277,7 +1292,7 @@ img <- readPNG("~/Downloads/hsa05219.png")
 # draw kegg pict
 par(mar=c(0, 0, 0, 0))
 plot(0, xlim=c(0, ncol(img)), ylim=c(0, nrow(img)), type="n", bty="n", axes=F, xlab="", ylab="")
-rasterImage(img, 0, 0, ncol(img), nrow(img))                                                                                        
+rasterImage(img, 0, 0, ncol(img), nrow(img))
 
 # draw something on p53
 x <- 796                # center coordinates of the box
@@ -1309,7 +1324,7 @@ download.file("http://rest.kegg.jp/get/hsa05219/image", "~/Downloads/hsa05219.pn
 
 img <- readPNG("~/Downloads/hsa05219.png")
 
-g <- rasterGrob(img, 0, 0, ncol(img), nrow(img), just=c("left","bottom"))
+g <- rasterGrob(img, 0, 0, ncol(img), nrow(img), just=c("left", "bottom"))
 ggplot(data.frame(x=c(0, ncol(img)), y=c(0, nrow(img))), aes(x=x, y=y)) +
     annotation_custom(g, 0, 1, 0, 1) +
     geom_point(data=data.frame(x=796, y=(nrow(img) - 336)), mapping=aes(x=x, y=y), col="red") +
@@ -1326,47 +1341,47 @@ ideogramTab <- read.csv("~/idibell/varis/ideogramTab.csv")
 # funcio que torna un objecte ggplot amb l'ideograma del cromosoma
 dibuixaIdeograma <- function(chr) {
 
-        ideo <- ideogramTab[ideogramTab$chr == chr,]
-        center <- ideo[ideo$braç=="cen","end"]
+        ideo <- ideogramTab[ideogramTab$chr == chr, ]
+        center <- ideo[ideo$braç=="cen", "end"]
         chrLength <- max(ideo$end)
         # el viewport comença un 10% abans de la coordenada 0, i acaba un 20% mes tard
-        pushViewport(dataViewport(xData=c(0-chrLength * .18,chrLength * 1.32),yData=c(0,6),extension=0,layout.pos.col=1,layout.pos.row=1))      
+        pushViewport(dataViewport(xData=c(0-chrLength * .18, chrLength * 1.32), yData=c(0, 6), extension=0, layout.pos.col=1, layout.pos.row=1))
 
         # pintem rectangles per a cada banda. El color be definit per:
         #     -si V8=="gpos" --> un gradient de la paleta de grisos [1:100] segons V9
         #     -altrament --> blanc. En aquest cas V9 == NA
-        ideo[is.na(ideo[,9]),9] <- 1
-        pal <- colorRampPalette(c("white","black"))(100)
-    for(i in seq(along = ideo[,1])) {
-                grid.rect(x=ideo[i,6],
+        ideo[is.na(ideo[, 9]), 9] <- 1
+        pal <- colorRampPalette(c("white", "black"))(100)
+    for(i in seq(along = ideo[, 1])) {
+                grid.rect(x=ideo[i, 6],
                 y=2,
-                width=ideo[i,7]-ideo[i,6],
+                width=ideo[i, 7]-ideo[i, 6],
                 height=2,
-                gp=gpar(col=pal[ideo[i,9]],
-                fill=pal[ideo[i,9]]),
+                gp=gpar(col=pal[ideo[i, 9]],
+                fill=pal[ideo[i, 9]]),
                 default.units="native",
-                just=c("left","bottom"))
+                just=c("left", "bottom"))
         }
 
         # center == centromer (on creuarem els dos braços)
         # requadre al braç p
-        grid.lines(c(0,center-500000),c(4,4),default.units = "native")
-        grid.lines(c(0,center-500000),c(2,2),default.units = "native")
-        grid.lines(c(0,0),c(2,4),default.units = "native")
+        grid.lines(c(0, center-500000), c(4, 4), default.units = "native")
+        grid.lines(c(0, center-500000), c(2, 2), default.units = "native")
+        grid.lines(c(0, 0), c(2, 4), default.units = "native")
         # requadre al braç q
-        grid.lines(c(center+500000,chrLength),c(4,4),default.units = "native")
-        grid.lines(c(center+500000,chrLength),c(2,2),default.units = "native")
-        grid.lines(c(chrLength,chrLength),c(2,4),default.units = "native")
+        grid.lines(c(center+500000, chrLength), c(4, 4), default.units = "native")
+        grid.lines(c(center+500000, chrLength), c(2, 2), default.units = "native")
+        grid.lines(c(chrLength, chrLength), c(2, 4), default.units = "native")
         # creuament al centromer
-        grid.lines(c(center-500000,center+500000),c(4,2),default.units = "native")
-        grid.lines(c(center-500000,center+500000),c(2,4),default.units = "native")
+        grid.lines(c(center-500000, center+500000), c(4, 2), default.units = "native")
+        grid.lines(c(center-500000, center+500000), c(2, 4), default.units = "native")
         popViewport()
 }
 ```
 
 ### Plot chromosome ideograms with additional tracks
 
-Ideograms aka karyograms may contain additional information like p-Values or coverage information.   
+Ideograms aka karyograms may contain additional information like p-Values or coverage information.
 https://stackoverflow.com/questions/44003072/annotate-karyogram-with-granges-track/44043471#44043471 points to an option how to annotate karyograms with additional data.
 
 
@@ -1419,7 +1434,7 @@ ggplot(hg19) +
      layout_karyogram(data = test.granges,
                       geom = "point",
                       aes(x=start, y=fisher_het),
-                      ylim = c(10,50),
+                      ylim = c(10, 50),
                       color = "black",
                       size = 0.4
                       )
@@ -1435,7 +1450,7 @@ The nice [http://bioconductor.org/packages/release/bioc/html/Gviz.html GViz] pac
 ```R
 #################################
 ##
-## Gviz visualization of KMT2A coordinates: chr11:118,307,205-118,397,539 (hg19)
+## Gviz visualization of KMT2A coordinates: chr11:118, 307, 205-118, 397, 539 (hg19)
 ##
 #################################
 library(Gviz)
@@ -1488,26 +1503,27 @@ See the section [Plots](#plots) for specific ChIP-seq plots.
 ## Miscellaneous bioinformatic related stuff
 
 ### Barcode design
+
 Design custom and robust DNA barcode sets capable of correcting substitution errors or insertion, deletion, and substitution errors. Use the [http://bioconductor.org/packages/release/bioc/html/DNABarcodes.html DNABarcodes] package from Bioconductor. More [http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0036852 here].
 
 ```R
 library("DNABarcodes")
 mySet <- create.dnabarcodes(5)
-## 1) Creating pool ...  of size 592
-## 2) Conway closing...  done
-show(mySet)
-##  [1] "GAGAA" "AGCAA" "CCTAA" "CAAGA" "ACGGA" "GTCGA" "TGTGA" "GGACA"
-##  [9] "CTGCA" "TACCA" "CGAAG" "TCGAG" "GTTAG" "ATAGG" "AAGCG" "GAATG"
-## [17] "TGCTG" "ACTTG" "ACAAC" "CACAC" "TAGGC" "CTTGC" "TTACC" "GATCC"
-## [25] "AGGTC" "GCCAT" "TCAGT" "AACGT" "TGGCT" "CAGTT"
-analyse.barcodes(mySet)
-##                   Description  hamming   seqlev levenshtein
-## 1               Mean Distance 5.242908 3.656915    4.560284
-## 2             Median Distance 5.000000 4.000000    5.000000
-## 3            Minimum Distance 3.000000 1.000000    2.000000
-## 4            Maximum Distance 7.000000 7.000000    7.000000
-## 5 Guaranteed Error Correction 1.000000 0.000000    0.000000
-## 6  Guaranteed Error Detection 2.000000 0.000000    1.000000
+# 1) Creating pool ...  of size 592
+# 2) Conway closing...  done
+how(mySet)
+#  [1] "GAGAA" "AGCAA" "CCTAA" "CAAGA" "ACGGA" "GTCGA" "TGTGA" "GGACA"
+#  [9] "CTGCA" "TACCA" "CGAAG" "TCGAG" "GTTAG" "ATAGG" "AAGCG" "GAATG"
+# [17] "TGCTG" "ACTTG" "ACAAC" "CACAC" "TAGGC" "CTTGC" "TTACC" "GATCC"
+# [25] "AGGTC" "GCCAT" "TCAGT" "AACGT" "TGGCT" "CAGTT"
+nalyse.barcodes(mySet)
+#                   Description  hamming   seqlev levenshtein
+# 1               Mean Distance 5.242908 3.656915    4.560284
+# 2             Median Distance 5.000000 4.000000    5.000000
+# 3            Minimum Distance 3.000000 1.000000    2.000000
+# 4            Maximum Distance 7.000000 7.000000    7.000000
+# 5 Guaranteed Error Correction 1.000000 0.000000    0.000000
+# 6  Guaranteed Error Detection 2.000000 0.000000    1.000000
 ```
 
 ### Getting things from Biomart
@@ -1527,33 +1543,34 @@ Biomart is the data access interface for Ensembl databases. The ''biomaRt'' pack
 library(biomaRt)
 
 ## normal connection (ensembl genes, hg19)
-gene.ann <- getBM(attributes=c("ensembl_gene_id","external_gene_name","chromosome_name","start_position","end_position"),
+gene.ann <- getBM(attributes=c("ensembl_gene_id", "external_gene_name", "chromosome_name", "start_position", "end_position"),
                   filter="biotype", values="protein_coding",
-                  mart=useMart("ensembl",dataset="hsapiens_gene_ensembl"))
+                  mart=useMart("ensembl", dataset="hsapiens_gene_ensembl"))
 
 ## connect to HG18
-#mart  <- useMart("ENSEMBL_MART_ENSEMBL",dataset="hsapiens_gene_ensembl",
-#	host="may2009.archive.ensembl.org",
-#	path="/biomart/martservice",archive=FALSE)	# Ensembl54 (hg18/NCBI36))
+#mart  <- useMart("ENSEMBL_MART_ENSEMBL", dataset="hsapiens_gene_ensembl",
+#  host="may2009.archive.ensembl.org",
+#  path="/biomart/martservice", archive=FALSE)  # Ensembl54 (hg18/NCBI36))
 
 ## connect to Variation (SNPs)
-# mart <- biomaRt::useMart("snp",dataset="hsapiens_snp")
-# snp  <- biomaRt::getBM(attributes=c("refsnp_id","chr_name","chrom_start"),
-#	filters="snp_filter",values=snp,mart=mart)
+# mart <- biomaRt::useMart("snp", dataset="hsapiens_snp")
+# snp  <- biomaRt::getBM(attributes=c("refsnp_id", "chr_name", "chrom_start"),
+#  filters="snp_filter", values=snp, mart=mart)
 ```
 
 ### Getting things from the Ensembl databases
+
 Alternatively, one can get the same stuff directly from the Ensembl databases. Also an alternitive from their messy perl API...
 
 ```R
 library(RMySQL)
-con   <- dbConnect(MySQL(),user="anonymous",host="ensembldb.ensembl.org",dbname="homo_sapiens_core_79_38")
+con   <- dbConnect(MySQL(), user="anonymous", host="ensembldb.ensembl.org", dbname="homo_sapiens_core_79_38")
 query <- paste("SELECT g.stable_id, t.stable_id, p.stable_id, x.display_label",
                "  FROM gene AS g, transcript AS t, translation AS p, xref AS x",
                " WHERE t.transcript_id = g.canonical_transcript_id",
                "   AND t.transcript_id = p.transcript_id",
                "   AND x.xref_id = g.display_xref_id")
-x     <- dbGetQuery(conn=con,statement=query)
+x     <- dbGetQuery(conn=con, statement=query)
 ```
 
 ### Getting things from the UCSC tables and ENCODE tracks
@@ -1570,7 +1587,7 @@ Discovering which tracks and tables are available from UCSC:
 
 ```R
 track.names <- trackNames(ucscTableQuery(mySession))
-tableNames(ucscTableQuery(mySession,track=track.names[1]))
+tableNames(ucscTableQuery(mySession, track=track.names[1]))
 ```
 
 Identify repeat-masked regions in and around the transcription
@@ -1578,7 +1595,7 @@ start site (TSS) of the human E2F3 gene, in hg19:
 
 ```R
 e2f3.tss.grange <- GRanges("chr6", IRanges(20400587, 20403336))
-tbl.rmsk <- getTable(ucscTableQuery(mySession,track="rmsk",range=e2f3.tss.grange,table="rmsk"))
+tbl.rmsk <- getTable(ucscTableQuery(mySession, track="rmsk", range=e2f3.tss.grange, table="rmsk"))
 ```
 
 Get DNaseI hypersensitivity regions in the K562 Cell Line from the ENCODE project:
@@ -1587,8 +1604,8 @@ Get DNaseI hypersensitivity regions in the K562 Cell Line from the ENCODE projec
 track.name <- "wgEncodeUwDgf"
 table.name <- "wgEncodeUwDgfK562Hotspots"
 e2f3.grange <- GRanges("chr6", IRanges(20400587, 20403336))
-tbl.k562.dgf.e2f3 <- getTable(ucscTableQuery(mySession,track=track.name,range=e2f3.grange,table=table.name))
-tbl.k562.dgf.hg19 <- getTable(ucscTableQuery(mySession,track=track.name,table=table.name))
+tbl.k562.dgf.e2f3 <- getTable(ucscTableQuery(mySession, track=track.name, range=e2f3.grange, table=table.name))
+tbl.k562.dgf.hg19 <- getTable(ucscTableQuery(mySession, track=track.name, table=table.name))
 ```
 
 ### Drug response curves using the ''drc'' package
@@ -1601,20 +1618,20 @@ tbl.k562.dgf.hg19 <- getTable(ucscTableQuery(mySession,track=track.name,table=ta
  x$dose <- 2^x$concen
 
  # fit into a sigmoidal model
- mock <- drm(mock ~ dose,data=x,
- 			fct=LL.4(names=c("Slope","Lower Limit","Upper Limit", "ED50")))
+ mock <- drm(mock ~ dose, data=x,
+       fct=LL.4(names=c("Slope", "Lower Limit", "Upper Limit", "ED50")))
 
- oe   <- drm(oe ~ dose,data=x,
- 			fct=LL.4(names=c("Slope","Lower Limit","Upper Limit", "ED50")))
+ oe   <- drm(oe ~ dose, data=x,
+       fct=LL.4(names=c("Slope", "Lower Limit", "Upper Limit", "ED50")))
 
  # report the IC50 with its confidence intervals
- ED(mock,c(5,50,95),interval="delta")
- ED(oe  ,c(5,50,95),interval="delta")
+ ED(mock, c(5, 50, 95), interval="delta")
+ ED(oe  , c(5, 50, 95), interval="delta")
 
  # plot
- plot(mock,broken=T,type="all",col="red",ylab="viability")
- plot(oe  ,broken=T,type="all",col="blue",add=T)
- legend("center",fill=c("red","blue"),legend=c("mock","oe"))
+ plot(mock, broken=T, type="all", col="red", ylab="viability")
+ plot(oe  , broken=T, type="all", col="blue", add=T)
+ legend("center", fill=c("red", "blue"), legend=c("mock", "oe"))
 ```
 
 ### Permutation test to identify if 2 curves are significantly different
@@ -1622,87 +1639,87 @@ tbl.k562.dgf.hg19 <- getTable(ucscTableQuery(mySession,track=track.name,table=ta
 First method is based on anova multiple sample test described in Elso et al, 2004 and implemented in the ''statmod'' package:
 
 ```R
- ##
- ## Input data has the folowing structure:
- ##
- ## +---------------+---------+-----+---------+-------+
- ## |  concentracio | x.clon1 | ... | x.clonN | Group |
- ## +---------------+---------+-----+---------+-------+
- ## |           1uM |   0.66  |     |   0.69  |  MOCK |
- ## |           2uM |   0.68  |     |   0.71  |  MOCK |
- ## |  ...                                            |
- ## |           1uM |   0.56  |     |   0.59  | SCRAM |
- ## |           2uM |   0.58  |     |   0.51  | SCRAM |
- ## |  ...                                            |
- ## |           1uM |   0.54  |     |   0.69  | SKMEL |
- ## |           2uM |   0.55  |     |   0.61  | SKMEL |
- ## |  ...                                            |
- ## +---------------+---------+-----+---------+-------+
- ##
+ #
+ # Input data has the folowing structure:
+ #
+ # +---------------+---------+-----+---------+-------+
+ # |  concentracio | x.clon1 | ... | x.clonN | Group |
+ # +---------------+---------+-----+---------+-------+
+ # |           1uM |   0.66  |     |   0.69  |  MOCK |
+ # |           2uM |   0.68  |     |   0.71  |  MOCK |
+ # |  ...                                            |
+ # |           1uM |   0.56  |     |   0.59  | SCRAM |
+ # |           2uM |   0.58  |     |   0.51  | SCRAM |
+ # |  ...                                            |
+ # |           1uM |   0.54  |     |   0.69  | SKMEL |
+ # |           2uM |   0.55  |     |   0.61  | SKMEL |
+ # |  ...                                            |
+ # +---------------+---------+-----+---------+-------+
+ #
  library(statmod)
  library(reshape2)
  library(parallel)
 
  # permutation test
- tperm <- function(f,nperm=1000) {
+ tperm <- function(f, nperm=1000) {
 
- 	# read data an normalize every clon with its first concentration value
- 	df <- read.csv(f)
- 	vals <- grep("^x",colnames(df))
- 	df.norm <- as.list(by(df[,vals],df$Group,function(df) { apply(df,2,function(x) x / x[1]) }))
- 	A  <- rep(names(df.norm),each=length(vals))
- 	dades <- Reduce(cbind,df.norm)
+   # read data an normalize every clon with its first concentration value
+   df <- read.csv(f)
+   vals <- grep("^x", colnames(df))
+   df.norm <- as.list(by(df[, vals], df$Group, function(df) { apply(df, 2, function(x) x / x[1]) }))
+   A  <- rep(names(df.norm), each=length(vals))
+   dades <- Reduce(cbind, df.norm)
 
- 	# permutation test
- 	s <- compareGrowthCurves(A,t(as.matrix(dades)),nsim=nperm)
- 	write.csv(s,file=paste0("stats.",f))
+   # permutation test
+   s <- compareGrowthCurves(A, t(as.matrix(dades)), nsim=nperm)
+   write.csv(s, file=paste0("stats.", f))
 
- 	# plot the dosage curves (be careful, the regression is polinomic (loess) and not logistic)
- 	pdf(paste0("stats.",f,".pdf"))
- 	df.norm <- lapply(df.norm,as.data.frame)
- 	for(i in 1:length(df.norm)) {
- 		df.norm[[i]]$uM <- log2(unique(df$uM))
- 		df.norm[[i]]$Group <- names(df.norm)[i]
- 	}
- 	dades <- Reduce(rbind,df.norm)
- 	df2 <- melt(dades,id.vars=c("uM","Group"))
- 	p <- ggplot(df2,aes(x=uM,y=value,colour=Group)) + geom_smooth() + geom_point()
- 	print(p)
- 	dev.off()
+   # plot the dosage curves (be careful, the regression is polinomic (loess) and not logistic)
+   pdf(paste0("stats.", f, ".pdf"))
+   df.norm <- lapply(df.norm, as.data.frame)
+   for(i in 1:length(df.norm)) {
+     df.norm[[i]]$uM <- log2(unique(df$uM))
+     df.norm[[i]]$Group <- names(df.norm)[i]
+   }
+   dades <- Reduce(rbind, df.norm)
+   df2 <- melt(dades, id.vars=c("uM", "Group"))
+   p <- ggplot(df2, aes(x=uM, y=value, colour=Group)) + geom_smooth() + geom_point()
+   print(p)
+   dev.off()
  }
 
- mclapply(list.files(pattern="*.csv"),tperm,nperm=1000,mc.cores=4)
+ mclapply(list.files(pattern="*.csv"), tperm, nperm=1000, mc.cores=4)
 ```
 
 Second method is based on the F-score from an anova test, were we compare the original score to those obtained by permutation, using an empirical cumulative distribution to get the pvalue:
 
 ```R
- tperm <- function(f,nperm) {
- 	dades <- read.csv(paste(f,".csv",sep=""))
- 	dades <- reshape2::melt(dades,id.vars=c("Concentration","Group"))
- 	dades$Concentration <- as.factor(dades$Concentration)
- 	dades$Group <- as.factor(dades$Group)
- 	d <- anova(lm(value ~ Group*Concentration,data=dades))["Group:Concentration","F value"]
+ tperm <- function(f, nperm) {
+   dades <- read.csv(paste(f, ".csv", sep=""))
+   dades <- reshape2::melt(dades, id.vars=c("Concentration", "Group"))
+   dades$Concentration <- as.factor(dades$Concentration)
+   dades$Group <- as.factor(dades$Group)
+   d <- anova(lm(value ~ Group*Concentration, data=dades))["Group:Concentration", "F value"]
 
- 	# get nperm scores (permutation test)
- 	require(parallel)
+   # get nperm scores (permutation test)
+   require(parallel)
 
- 	d.null <- mclapply(1:nperm,function(x) {
- 		# permute (only permute the values inside every concentration)
- 		perm <- by(dades,dades[,"Concentration"],function(x) {
- 						x$value <- x$value[sample(1:nrow(x))];
- 						return(x) })
- 		perm <- do.call(rbind,perm)
- 		d <- anova(lm(value ~ Group*Concentration,data=perm))["Group:Concentration","F value"]
- 	},mc.cores=4)
+   d.null <- mclapply(1:nperm, function(x) {
+     # permute (only permute the values inside every concentration)
+     perm <- by(dades, dades[, "Concentration"], function(x) {
+             x$value <- x$value[sample(1:nrow(x))];
+             return(x) })
+     perm <- do.call(rbind, perm)
+     d <- anova(lm(value ~ Group*Concentration, data=perm))["Group:Concentration", "F value"]
+   }, mc.cores=4)
 
- 	# build an empirical distribution, and output the pvalue to get more extreme D
- 	p.null <- ecdf(unlist(d.null))
- 	print(paste(f,"pval:",1 - p.null(d)))
- 	return(p.null)
+   # build an empirical distribution, and output the pvalue to get more extreme D
+   p.null <- ecdf(unlist(d.null))
+   print(paste(f, "pval:", 1 - p.null(d)))
+   return(p.null)
  }
 
- s <- sapply(c("akt","sft31","shikonin"),tperm,10000)
+ s <- sapply(c("akt", "sft31", "shikonin"), tperm, 10000)
 ```
 
 ### GenomicRanges
@@ -1710,23 +1727,23 @@ Second method is based on the F-score from an anova test, were we compare the or
 Example using the ''GenomicRanges'' package from ''bioconductor'' to find overlapping features:
 
 ```R
-## more things can be done (GAP, union, intersect, setdiff...)
+# more things can be done (GAP, union, intersect, setdiff...)
 library(GenomicRanges)
 
 # read the two tables containing positions
 dmr  <- read.csv("~/Desktop/DMR.csv")
 gens <- read.csv("~/Desktop/gens.csv")
 
-# build the GRanges objects (the columns, in this order: CHR,INI,FI,STRAND,FEATURES...)
-rd1 <- with(dmr, GRanges(CHR,IRanges(INI,FI),STRAND,nom=NOM))
-rd2 <- with(gens,GRanges(CHR,IRanges(INI,FI),STRAND,nom=NOM,pval=PVAL,diff=DIFF))
+# build the GRanges objects (the columns, in this order: CHR, INI, FI, STRAND, FEATURES...)
+rd1 <- with(dmr, GRanges(CHR, IRanges(INI, FI), STRAND, nom=NOM))
+rd2 <- with(gens, GRanges(CHR, IRanges(INI, FI), STRAND, nom=NOM, pval=PVAL, diff=DIFF))
 
 # do the matching; maxgap distance accepted
-mm <- findOverlaps(rd1,rd2,maxgap=2000)
+mm <- findOverlaps(rd1, rd2, maxgap=2000)
 
 # add the columns with the feature names from the query
-solucio <- data.frame(as.data.frame(rd1[as.matrix(mm)[,1],]),as.data.frame(rd2[as.matrix(mm)[,2],]))
-write.csv(solucio,file="solucio.csv")
+solucio <- data.frame(as.data.frame(rd1[as.matrix(mm)[, 1], ]), as.data.frame(rd2[as.matrix(mm)[, 2], ]))
+write.csv(solucio, file="solucio.csv")
 ```
 
 ### Converting GTF to GFF3
@@ -1737,7 +1754,7 @@ Use the ''rtracklayer'' package from ''Bioconductor'' to convert between GTF <--
 library(rtracklayer)
 GTF <- "/fsimb/groups/imb-bioinfocf/projects/cfb_internal/imbforge-code/test/rnaseq/ref-chr1/genes+biotypes-chr1.gtf"
 GFF <- "/fsimb/groups/imb-bioinfocf/projects/cfb_internal/imbforge-code/test/rnaseq/ref-chr1/genes+biotypes-chr1.gff"
-export.gff(import.gff(GTF,format="gtf"),GFF,format="gff3")
+export.gff(import.gff(GTF, format="gtf"), GFF, format="gff3")
 ```
 
 ### Flatten a GFF/GTF file by gene_id (and get transcript lengths)
@@ -1810,23 +1827,23 @@ Get a dataset from GEO directly quering from R and the ''GEOquery'' package from
  ## Retina i Retina Detachment
  ##
  # expression arrays
- gset <- getGEO("GSE28133",GSEMatrix=T,AnnotGPL=T)	# be careful if the dataset uses more than 1 platform or is divided in several parts
+ gset <- getGEO("GSE28133", GSEMatrix=T, AnnotGPL=T)  # be careful if the dataset uses more than 1 platform or is divided in several parts
  ex   <- exprs(gset[[1]])
- colnames(ex) <- c(rep("Ret",19),rep("RD",19))
+ colnames(ex) <- c(rep("Ret", 19), rep("RD", 19))
 
  # platform annotation
- gpl    <- annotation(gset[[1]])	# GPL platform name
- platf  <- getGEO(gpl,AnnotGPL=TRUE)
- ncbifd <- data.frame(attr(dataTable(platf),"table"))
+ gpl    <- annotation(gset[[1]])  # GPL platform name
+ platf  <- getGEO(gpl, AnnotGPL=TRUE)
+ ncbifd <- data.frame(attr(dataTable(platf), "table"))
 
  # average expression of the several probes that interrogate a gene
- ex <- ex[rownames(ex) %in% ncbifd[ncbifd$Gene.symbol != "","ID"],]
- ex <- apply(ex,2,function(x,gens) { tapply(x,gens,mean,na.rm=T) },
- 			sapply(rownames(ex),function(x) ncbifd[ncbifd$ID == x,"Gene.symbol"]))
+ ex <- ex[rownames(ex) %in% ncbifd[ncbifd$Gene.symbol != "", "ID"], ]
+ ex <- apply(ex, 2, function(x, gens) { tapply(x, gens, mean, na.rm=T) },
+       sapply(rownames(ex), function(x) ncbifd[ncbifd$ID == x, "Gene.symbol"]))
 
  # save tables
- write.csv(ex[,grep("Ret",colnames(ex))],file="Ret.csv")
- write.csv(ex[,grep("RD",colnames(ex))],file="RD.csv")
+ write.csv(ex[, grep("Ret", colnames(ex))], file="Ret.csv")
+ write.csv(ex[, grep("RD", colnames(ex))], file="RD.csv")
 ```
 
 ### Get the genomic sequence of a region and plot its nucleotide content
@@ -1842,31 +1859,31 @@ This code uses the ''BSgenome'' package from ''bioconductor'' and calculates de 
  ini <- 66217200
  fi  <- 66221000
  w   <- 50
- st  <- w/5	# step window
+ st  <- w/5  # step window
  gen <- "HMGA2"
- s <- getSeq(Hsapiens,"chr12",ini,fi,as.character=TRUE)
+ s <- getSeq(Hsapiens, "chr12", ini, fi, as.character=TRUE)
 
  # plot the A/T and C/G content (as the average of w bp)
- pdf(paste(gen,".pdf",sep=""),width=12)
+ pdf(paste(gen, ".pdf", sep=""), width=12)
 
- f <- function(i,x,s,w) { length(gregexpr(x,substr(s,i-w,i+w))[[1]]) / (w * 2) }
- A=sapply(seq(from=w,to=nchar(s) - w,by=st),f,"A",s,w)
- T=sapply(seq(from=w,to=nchar(s) - w,by=st),f,"T",s,w)
- C=sapply(seq(from=w,to=nchar(s) - w,by=st),f,"C",s,w)
- G=sapply(seq(from=w,to=nchar(s) - w,by=st),f,"G",s,w)
+ f <- function(i, x, s, w) { length(gregexpr(x, substr(s, i-w, i+w))[[1]]) / (w * 2) }
+ A=sapply(seq(from=w, to=nchar(s) - w, by=st), f, "A", s, w)
+ T=sapply(seq(from=w, to=nchar(s) - w, by=st), f, "T", s, w)
+ C=sapply(seq(from=w, to=nchar(s) - w, by=st), f, "C", s, w)
+ G=sapply(seq(from=w, to=nchar(s) - w, by=st), f, "G", s, w)
 
  # A/T content
- df <- data.frame(x=rep(1:length(A),2),y=c(A,T),class=c(rep("A",length(A)),rep("T",length(T))))
- p <- ggplot(df,aes(x=x,y=y,colour=class)) + geom_line(size=1.05) + ggtitle(gen) +
- #	 scale_x_discrete(breaks=df$x,labels=as.character(ini + df$x * w)) +
- 	 theme_bw() + theme(axis.text.x=element_text(angle=90, hjust=1))
+ df <- data.frame(x=rep(1:length(A), 2), y=c(A, T), class=c(rep("A", length(A)), rep("T", length(T))))
+ p <- ggplot(df, aes(x=x, y=y, colour=class)) + geom_line(size=1.05) + ggtitle(gen) +
+ #   scale_x_discrete(breaks=df$x, labels=as.character(ini + df$x * w)) +
+    theme_bw() + theme(axis.text.x=element_text(angle=90, hjust=1))
  print(p)
 
  # C/G content
- df <- data.frame(x=rep(1:length(C),2),y=c(C,G),class=c(rep("C",length(C)),rep("G",length(G))))
- p <- ggplot(df,aes(x=x,y=y,colour=class)) + geom_line(size=1.05) + ggtitle(gen) +
- #	 scale_x_discrete(breaks=df$x,labels=as.character(ini + df$x * w)) +
- 	 theme_bw() + theme(axis.text.x=element_text(angle=90, hjust=1))
+ df <- data.frame(x=rep(1:length(C), 2), y=c(C, G), class=c(rep("C", length(C)), rep("G", length(G))))
+ p <- ggplot(df, aes(x=x, y=y, colour=class)) + geom_line(size=1.05) + ggtitle(gen) +
+ #   scale_x_discrete(breaks=df$x, labels=as.character(ini + df$x * w)) +
+    theme_bw() + theme(axis.text.x=element_text(angle=90, hjust=1))
  print(p)
 
  dev.off()
@@ -1883,31 +1900,32 @@ library(org.Hs.eg.db)
 library(GOstats)
 
 # list of official gene names
-geneids <- read.table("list.csv",head=F,row.names=NULL,stringsAsFactors=F)[,1]
+geneids <- read.table("list.csv", head=F, row.names=NULL, stringsAsFactors=F)[, 1]
 geneids <- geneids[!is.na(geneids)]
-genes   <- unlist(mget(geneids,ifnotfound=NA,revmap(org.Hs.egSYMBOL)))
+genes   <- unlist(mget(geneids, ifnotfound=NA, revmap(org.Hs.egSYMBOL)))
 #be careful here if one Symbol which is returned is associated to more than one entrez id
-# there will be entrez ids added to the list of genes and the names of the genes vector are changed
-# by adding 1,2 to the name! Check for your symbol and correct. An easy solution for ensembl ids (with length 11) is
+#there will be entrez ids added to the list of genes and the names of the genes vector are changed
+#by adding 1, 2 to the name! Check for your symbol and correct. An easy solution for ensembl ids (with length 11) is
 #genes <-genes[!duplicated(substr(names(genes), 1, 11))]
 #names(genes) <- substr(names(genes), 1, 11)
 univ    <- Lkeys(org.Hs.egGO)
-param2  <- new("GOHyperGParams",geneIds=genes,universeGeneIds=univ,annotation="org.Hs.eg.db",ontology="BP")
+param2  <- new("GOHyperGParams", geneIds=genes, universeGeneIds=univ, annotation="org.Hs.eg.db", ontology="BP")
 hyp     <- hyperGTest(param2)
 
 # take the categories with +2 genes
-result<-summary(hyp,categorySize=2)
-result<-data.frame(result,FDR=p.adjust(result$Pvalue,"fdr"))
+result<-summary(hyp, categorySize=2)
+result<-data.frame(result, FDR=p.adjust(result$Pvalue, "fdr"))
 
 # complement the GO term with the genes from the list it contains
-result$genes <- sapply(as.list(geneIdUniverse(hyp)[result$GOBPID]),function(x) {
-   paste(names(genes)[genes %in% x],collapse="; ")
+result$genes <- sapply(as.list(geneIdUniverse(hyp)[result$GOBPID]), function(x) {
+   paste(names(genes)[genes %in% x], collapse="; ")
 })
 ```
 
 Also, gene SYMBOLS can be retrieved from org.Hs.eg.db with the entrez gene Ids:
+
 ```R
-result$genes <- sapply(as.list(geneIdUniverse(hyp)[result$GOBPID]),function(x) {
+result$genes <- sapply(as.list(geneIdUniverse(hyp)[result$GOBPID]), function(x) {
    # get the entrezid of the genes in the GO category which are also in our list
    gene_symbols <- select(org.Hs.eg.db, columns="SYMBOL", keys=x[x %in% entrezid], keytype="ENTREZID")$SYMBOL
    paste(sort(unique(gene_symbols)), collapse="; ") # gene symbol
@@ -1915,25 +1933,26 @@ result$genes <- sapply(as.list(geneIdUniverse(hyp)[result$GOBPID]),function(x) {
 ```
 
 Alternatively genes names can be obtained from the SQL database (in case the previous step doesn't work):
+
 ```R
 library(DBI)
 library(RSQLite)
 
 drv <- dbDriver("SQLite")
-con <- dbConnect(drv,dbname="/usr/local/lib/R/site-library/org.Hs.eg.db/extdata/org.Hs.eg.sqlite")
+con <- dbConnect(drv, dbname="/usr/local/lib/R/site-library/org.Hs.eg.db/extdata/org.Hs.eg.sqlite")
 
- genes <- apply(result,1,function(x) {
-		res <- dbGetQuery(con,paste("select distinct a.symbol",
- 					    "  from gene_info a,go_bp_all b",
- 					    " where a._id = b._id",
- 					    "   and go_id = ?"),
- 				  data.frame(go_id=x["GOBPID"]))
- 		res <- intersect(unique(geneids),res[,1])
- 		return(paste(res,collapse=";"))
- })
+genes <- apply(result, 1, function(x) {
+   res <- dbGetQuery(con, paste("select distinct a.symbol",
+              "  from gene_info a, go_bp_all b",
+              " where a._id = b._id",
+              "   and go_id = ?"),
+          data.frame(go_id=x["GOBPID"]))
+  res <- intersect(unique(geneids), res[, 1])
+  return(paste(res, collapse=";"))
+})
 
- # save the results
- write.csv(data.frame(result,genes=genes),file="llista_verda.GO.csv")
+# save the results
+write.csv(data.frame(result, genes=genes), file="llista_verda.GO.csv")
 ```
 
 #### GSEA of Biological Processes (a parallel version)
@@ -1943,23 +1962,23 @@ A parallel version based on "parallel" (not "multicore", "snow", "foreach") can 
 ```R
 # functions for parallel GO testing
 makeGoParms <- function(geneids) {
-    genes  <- unlist(mget(geneids,ifnotfound=NA,revmap(org.Mm.egSYMBOL)))
+    genes  <- unlist(mget(geneids, ifnotfound=NA, revmap(org.Mm.egSYMBOL)))
     #be careful here if one Symbol which is returned is associated to more than one entrez id
     # there will be entrez ids added to the list of genes and the names of the genes vector are changed
-    # by adding 1,2 to the name! Check for your symbol and correct. An easy solution for ensembl ids (with length 11) is
+    # by adding 1, 2 to the name! Check for your symbol and correct. An easy solution for ensembl ids (with length 11) is
     #genes <-genes[!duplicated(substr(names(genes), 1, 11))]
     #names(genes) <- substr(names(genes), 1, 11)
     univ   <- Lkeys(org.Mm.egGO)
-    param2 <- new("GOHyperGParams",geneIds=genes,universeGeneIds=univ,annotation="org.Mm.eg.db",ontology="BP")
+    param2 <- new("GOHyperGParams", geneIds=genes, universeGeneIds=univ, annotation="org.Mm.eg.db", ontology="BP")
     list(genes=genes, param2=param2)
 }
 
 GoTest <- function(parms) {
     hyp <- hyperGTest(parms$param2)
-    result <- summary(hyp,categorySize=2)
-    result <- data.frame(result,FDR=p.adjust(result$Pvalue,"fdr"))
-    result$genes <- sapply(as.list(geneIdUniverse(hyp)[result$GOBPID]),function(x) {
-        paste(names(parms$genes)[parms$genes %in% x],collapse="; ")
+    result <- summary(hyp, categorySize=2)
+    result <- data.frame(result, FDR=p.adjust(result$Pvalue, "fdr"))
+    result$genes <- sapply(as.list(geneIdUniverse(hyp)[result$GOBPID]), function(x) {
+        paste(names(parms$genes)[parms$genes %in% x], collapse="; ")
     })
     result
 }
@@ -2004,7 +2023,7 @@ g  <- getBM(attributes=c("ensembl_gene_id", "ensembl_transcript_id"), filters="f
             values=unique(unlist(strsplit(x, ";"))), mart=mart)
 xx <- unique(unlist(mget(g$ensembl_gene_id, ifnotfound=NA, revmap(org.Dm.egENSEMBL))))
 #now we have to get rid of the genes which have multiple entrez ids and just take one
-# since mget is adding 0,1,2 to the name we can filter by the ensembl id length (11)
+# since mget is adding 0, 1, 2 to the name we can filter by the ensembl id length (11)
 xx <-xx[!duplicated(substr(names(xx), 1, 11))]
 names(xx) <- substr(names(xx), 1, 11)
 univ <- Lkeys(org.Dm.egGO)
@@ -2041,15 +2060,15 @@ require(biomaRt)
 ##
 ## GO ENRICHMENT + PLOTS
 ##
-mart <- useDataset("mmusculus_gene_ensembl",useMart("ENSEMBL_MART_ENSEMBL",host="www.ensembl.org"))
+mart <- useDataset("mmusculus_gene_ensembl", useMart("ENSEMBL_MART_ENSEMBL", host="www.ensembl.org"))
 GOenrich <- function(g) {
-     g <- getBM(attributes="ensembl_gene_id",filters="external_gene_name",values=g,mart=mart)
-     x <- enrichDAVID(g$ensembl_gene_id,idType="ENSEMBL_GENE_ID",listType="Gene",
-                      annotation="GOTERM_BP_ALL",pvalueCutoff=0.01)
+     g <- getBM(attributes="ensembl_gene_id", filters="external_gene_name", values=g, mart=mart)
+     x <- enrichDAVID(g$ensembl_gene_id, idType="ENSEMBL_GENE_ID", listType="Gene",
+                      annotation="GOTERM_BP_ALL", pvalueCutoff=0.01)
      x
 }
-david1 <- GOenrich(genes1)	# official gene symbols
-david2 <- GOenrich(genes2)	# official gene symbols
+david1 <- GOenrich(genes1)  # official gene symbols
+david2 <- GOenrich(genes2)  # official gene symbols
 
 # some plots
 barplot(david1)
@@ -2059,19 +2078,19 @@ cnetplot(david1)
 ## Compare the GO enrichment of the 2 gene lists
 ##
 GOcompare <- function(g) {
-    g <- lapply(g,function(g) {
+    g <- lapply(g, function(g) {
         cat("connecting to biomart...\n")
-        x <- getBM(attributes="entrezgene",filters="external_gene_name",values=g,mart=mart)
+        x <- getBM(attributes="entrezgene", filters="external_gene_name", values=g, mart=mart)
         x$entrezgene
     })
     cat("connecting to david...\n")
-#   x <- compareCluster(g,fun="enrichDAVID",idType="ENTREZ_GENE_ID",listType="Gene",
-#                       annotation="GOTERM_BP_ALL",pvalueCutoff=0.01,minGSSize=5)
-    x <- compareCluster(g,fun="enrichGO",organism="mouse",ont="BP")
+#   x <- compareCluster(g, fun="enrichDAVID", idType="ENTREZ_GENE_ID", listType="Gene",
+#                       annotation="GOTERM_BP_ALL", pvalueCutoff=0.01, minGSSize=5)
+    x <- compareCluster(g, fun="enrichGO", organism="mouse", ont="BP")
     x
 }
 
-plot(GOcompare(list(genes1,genes2)),showCategory=25)
+plot(GOcompare(list(genes1, genes2)), showCategory=25)
 ```
 
 #### Reducing GO DAGs with Semantic Similarity
@@ -2105,8 +2124,8 @@ cl    <- makeCluster(CORES)
 clusterEvalQ(cl, library(GOSemSim))
 
 # calculate the semantic similarity with previous terms (from bottom (less signif) to top)
-goterms <- goterms[order(goterms$Pvalue),]
-goterms <- goterms[1:min(c(MAXTERMS, nrow(goterms))),]
+goterms <- goterms[order(goterms$Pvalue), ]
+goterms <- goterms[1:min(c(MAXTERMS, nrow(goterms))), ]
 drop <- parLapply(cl, nrow(goterms):2, function(i, goterms) {
     semsim <- lapply((i-1):1, function(j) {
         goSim(goterms$GOBPID[i], goterms$GOBPID[j], semData=godata("org.Hs.eg.db", ont="BP"), measure="Rel")
@@ -2116,12 +2135,12 @@ drop <- parLapply(cl, nrow(goterms):2, function(i, goterms) {
 }, goterms)
 
 drop <- c(FALSE, rev(unlist(drop)))
-goterms.reduced <- goterms[!drop,]  # take just the columns you want...
+goterms.reduced <- goterms[!drop, ]  # take just the columns you want...
 
 stopCluster(cl)
 ```
 
-Since it's an extremely CPU intensive and parallelizable problem, it's advisable to use parLapply instead of the first lapply loop and set a maximum of the number of terms to be processed (by min(c(MAXTERMS,nrow(cl):2)) in the lapply loop).
+Since it's an extremely CPU intensive and parallelizable problem, it's advisable to use parLapply instead of the first lapply loop and set a maximum of the number of terms to be processed (by min(c(MAXTERMS, nrow(cl):2)) in the lapply loop).
 
 #### Summarizing by scoring frequencies of words
 
@@ -2130,13 +2149,13 @@ An original way to visually summarize GO terms by displaying variable sized word
 ```R
 library(wordcloud)
 x <- read.csv("categorical_onlyE_apclusters_GO.csv")
-x[1:5,]
+x[1:5, ]
 #      GOBPID       Pvalue OddsRatio   ExpCount Count Size                                                                 Term
-#1 GO:0001112 5.290072e-06  143.6133 0.03804965     3    7                 DNA-templated transcriptional open complex formation
-#2 GO:0001113 5.290072e-06  143.6133 0.03804965     3    7 transcriptional open complex formation at RNA polymerase II promoter
-#3 GO:0001120 5.290072e-06  143.6133 0.03804965     3    7                                       protein-DNA complex remodeling
-#4 GO:0034367 5.290072e-06  143.6133 0.03804965     3    7                                    macromolecular complex remodeling
-#5 GO:0001109 8.431172e-06  114.8812 0.04348532     3    8                promoter clearance during DNA-templated transcription
+#1 GO:0001112 5.290072e-06  143.6133 0.03804965     3    7 DNA-templated open complex formation
+#2 GO:0001113 5.290072e-06  143.6133 0.03804965     3    7 transcriptional open complex formation
+#3 GO:0001120 5.290072e-06  143.6133 0.03804965     3    7 protein-DNA complex remodeling
+#4 GO:0034367 5.290072e-06  143.6133 0.03804965     3    7 macromolecular complex remodeling
+#5 GO:0001109 8.431172e-06  114.8812 0.04348532     3    8 promoter clearance during transcription
 wordcloud(x$Term, colors=brewer.pal(8, "Dark2"))
 ```
 
@@ -2150,8 +2169,8 @@ crude <- tm_map(crude, removePunctuation)
 crude <- tm_map(crude, function(x)removeWords(x, stopwords()))
 tdm <- TermDocumentMatrix(crude)
 m <- as.matrix(tdm)
-v <- sort(rowSums(m),decreasing=TRUE)
-d <- data.frame(word = names(v),freq=v)
+v <- sort(rowSums(m), decreasing=TRUE)
+d <- data.frame(word = names(v), freq=v)
 wordcloud(d$word, d$freq, min.freq=2, colors=brewer.pal(8, "Dark2"))
 ```
 
@@ -2213,13 +2232,13 @@ df  <- as.data.frame(fit$points)
 df$term  <- goterms$Term[match(rownames(df), goterms$GOBPID)]
 df$size  <- goterms$Size[match(rownames(df), goterms$GOBPID)]
 df$clrep <- goterms$clrep[match(rownames(df), goterms$GOBPID)]
-df2 <- df[df$clrep == df$term,]
+df2 <- df[df$clrep == df$term, ]
 
 p <- ggplot(df, aes(x=V1, y=V2, label=clrep)) +
         geom_point(aes(color=clrep, size=size), alpha=.5) +
-        geom_label_repel(data=df2, aes(x=V1, y=V2, label=clrep, color=clrep), box.padding=unit(2,"lines")) +
+        geom_label_repel(data=df2, aes(x=V1, y=V2, label=clrep, color=clrep), box.padding=unit(2, "lines")) +
         scale_color_manual("cluster", values=pal2, guide=F) +
-        scale_size_continuous(guide=F, range=c(0,25)) +
+        scale_size_continuous(guide=F, range=c(0, 25)) +
         scale_x_continuous(name="") +
         scale_y_continuous(name="") +
         theme_minimal() +
@@ -2274,10 +2293,10 @@ stopCluster(cl)
 
 ```R
  f.qn <- function(x) {
- 	xm <- apply(x,2,sort)
- 	xm <- apply(xm,1,median,na.rm=T)
- 	xr <- c(apply(x,2,rank))
- 	return(array(approx(1:nrow(x),xm,xr)$y,dim(x),dimnames(x)))
+   xm <- apply(x, 2, sort)
+   xm <- apply(xm, 1, median, na.rm=T)
+   xr <- c(apply(x, 2, rank))
+   return(array(approx(1:nrow(x), xm, xr)$y, dim(x), dimnames(x)))
  }
 ```
 
@@ -2291,12 +2310,12 @@ stopCluster(cl)
 library(parallel)
 cl <- makeCluster(CORES)
 f.smooth <- function(x) {
-    xm <- apply(x,1,median,na.rm=T)
-    parApply(cl,x,2,function(x,xm) {
+    xm <- apply(x, 1, median, na.rm=T)
+    parApply(cl, x, 2, function(x, xm) {
         smooth.fit <- fitted.values(loess(x ~ xm))
         dev <- smooth.fit - xm
         x - dev
-    },xm)
+    }, xm)
 }
 stopCluster(cl)
 ```
@@ -2305,7 +2324,7 @@ stopCluster(cl)
 
 ```R
 RC <- function(s) {
-	chartr("ACTG","TGAC",paste(rev(unlist(strsplit(s,""))),collapse=""))
+  chartr("ACTG", "TGAC", paste(rev(unlist(strsplit(s, ""))), collapse=""))
 }
 ```
 
@@ -2317,8 +2336,8 @@ Can be done with the ShortRead package:
 library("ShortRead")
 fasta <- readFasta("file.fa")
 for(i in 1:length(fasta)) {
-    se <- as.character(sread(fasta[i]))	# sequence
-    id <- as.character(id(fasta[i]))	# id
+    se <- as.character(sread(fasta[i]))  # sequence
+    id <- as.character(id(fasta[i]))  # id
 }
 ```
 
@@ -2328,8 +2347,8 @@ Or with the Biostrings package:
 library("Biostrings")
 fasta <- readAAStringSet("file.fa")     # for peptides. Try also readDNA or readRNA
 for(i in 1:length(fasta)) {
-    se <- as.character(fasta[i])	# sequence
-    id <- names(as.character(fasta[i]))	# id
+    se <- as.character(fasta[i])  # sequence
+    id <- names(as.character(fasta[i]))  # id
 }
 ```
 
@@ -2339,8 +2358,8 @@ for(i in 1:length(fasta)) {
 library(TxDb.Mmusculus.UCSC.mm9.knownGene)
 txdb <- TxDb.Mmusculus.UCSC.mm9.knownGene
 columns(txdb)
-x <- select(txdb, columns=c("TXNAME","CDSCHROM","TXSTART","TXEND","TXSTRAND"),
-            keys=keys(txdb,"TXID"), keytype=c("TXID"))
+x <- select(txdb, columns=c("TXNAME", "CDSCHROM", "TXSTART", "TXEND", "TXSTRAND"),
+            keys=keys(txdb, "TXID"), keytype=c("TXID"))
 ```
 
 ### Get information of genomic features
@@ -2377,14 +2396,14 @@ rownames(df) <- c("promoters", "transcripts", "exons", "cds", "introns", "threeU
 
 ```R
 # Verify variance is uniform
-plot(apply(x,1,var))
+plot(apply(x, 1, var))
 
 # and scale otherwise
 x <- data.frame(scale(x))
 
 #calculate the PCA
 pc <- princomp(x)
-plot(pc,type='l') # use elbow rule to select how many components
+plot(pc, type='l') # use elbow rule to select how many components
 
 # See which components dominate. What are the loadings?
 summary(pc)  # components summary
@@ -2395,25 +2414,25 @@ loadings(pc) # loadings of original variables onto components
 pc <- prcomp(x)
 
 # Plot first 2 PC
-plot(data.frame(pc$x[,1:2]),pch=16,col=rgb(0,0,0,0.5))
+plot(data.frame(pc$x[, 1:2]), pch=16, col=rgb(0, 0, 0, 0.5))
 ```
 
 ### Multidimensional Scaling (MDS)
 
 ```R
- # Classical MDS
- # N rows (objects) x p columns (variables)
- # each row identified by a unique row name
+# Classical MDS
+# N rows (objects) x p columns (variables)
+# each row identified by a unique row name
 
- d   <- dist(mydata) # euclidean distances between the rows
- fit <- cmdscale(d,eig=TRUE, k=2) # k is the number of dim
- fit # view results
+d   <- dist(mydata) # euclidean distances between the rows
+fit <- cmdscale(d, eig=TRUE, k=2) # k is the number of dim
+fit # view results
 
- # plot solution
- x <- fit$points[,1]
- y <- fit$points[,2]
- plot(x,y,xlab="Coordinate 1",ylab="Coordinate 2",main="Metric MDS",type="n")
- text(x,y,labels=row.names(mydata),cex=.7)
+# plot solution
+x <- fit$points[, 1]
+y <- fit$points[, 2]
+plot(x, y, xlab="Coordinate 1", ylab="Coordinate 2", main="Metric MDS", type="n")
+text(x, y, labels=row.names(mydata), cex=.7)
 ```
 
 ### Affinity Propagation Clustering
@@ -2423,67 +2442,70 @@ Autoclustering method implemented as described in the paper by Brendan J. Frey a
 ```R
 require(apcluster)
 
- ##
- ## k trees defined by affinity propagation, similarites as negative squared Euclidean distances
- ##
- f <- function(s,type,x) {
-         h <- apcluster(s)       # determine number of clusters
-         a <- aggExCluster(s,h)  # merge clusters
+##
+## k trees defined by affinity propagation, similarites as negative squared Euclidean distances
+##
+f <- function(s, type, x) {
+        h <- apcluster(s)       # determine number of clusters
+        a <- aggExCluster(s, h)  # merge clusters
 
-         plot(h,s,main=paste("similarities",type,"matrix"))      # plot similarities heatmap labeling the found clusters
-         plot(a,main=paste("similarities",type,"matrix"))        # plot the cluster
-         # plot the first 2 PCA components and the cluster grouping
-         for(i in length(h@clusters):1) {
-                 plot(a,x,k=i,main=paste("similarities",type,",",i,"clusters")) }
+        plot(h, s, main=paste("similarities", type, "matrix"))      # plot similarities heatmap labeling the found clusters
+        plot(a, main=paste("similarities", type, "matrix"))        # plot the cluster
+        # plot the first 2 PCA components and the cluster grouping
+        for(i in length(h@clusters):1) {
+                plot(a, x, k=i, main=paste("similarities", type, ", ", i, "clusters")) }
 
-         # write csv with cluster samples
-         r <- data.frame()
-         for(i in 1:length(h@clusters)) {
-                 r <- rbind(r,data.frame(sample=names(h@clusters[[i]]),cluster=i)) }
-         write.csv(r,file=paste("lung.AP.",type,".csv",sep=""))
- }
+        # write csv with cluster samples
+        r <- data.frame()
+        for(i in 1:length(h@clusters)) {
+                r <- rbind(r, data.frame(sample=names(h@clusters[[i]]), cluster=i)) }
+        write.csv(r, file=paste("lung.AP.", type, ".csv", sep=""))
+}
 
- # for graphical representation, we calculate a PCA to get x,y coordinate based on the first 2 components
- pca <- prcomp(t(betas))
- x   <- t(rbind(pca$x[,1],pca$x[,2]))
+# for graphical representation, we calculate a PCA to get x, y coordinate based on the first 2 components
+pca <- prcomp(t(betas))
+x   <- t(rbind(pca$x[, 1], pca$x[, 2]))
 
- # distnaces can be calculated as correlations, euclidean or manhattan
- f((as.matrix(as.dist(cor(betas)))*100)^2,"correlation",x)
- #f(negDistMat(t(betas),r=2),"euclidean",x)
- #f(negDistMat(t(betas),r=2,method="manhattan"),"manhattan",x)
+# distnaces can be calculated as correlations, euclidean or manhattan
+f((as.matrix(as.dist(cor(betas)))*100)^2, "correlation", x)
+#f(negDistMat(t(betas), r=2), "euclidean", x)
+#f(negDistMat(t(betas), r=2, method="manhattan"), "manhattan", x)
 ```
 
 ### Other methods for clustering
 
 '''k-means clustering'''
+
 ```R
 NCLUST=9
-k <- lapply(1:NCLUST, function(i) {                                                                                       
-    kmeans(models$lfq, centers=i, iter.max=100, nstart=25)                                                                
+k <- lapply(1:NCLUST, function(i) {
+  kmeans(models$lfq, centers=i, iter.max=100, nstart=25)
 })
 ```
 
 '''Mfuzz clustering'''
+
 ```R
 NCLUST=9
-exprs <- new("ExpressionSet", exprs=models$lfq)                                
-k <- lapply(2:NCLUST, function(i) {                                          
-   mfuzz(exprs, c=i, m=1.25)                                                  
+exprs <- new("ExpressionSet", exprs=models$lfq)
+k <- lapply(2:NCLUST, function(i) {
+  mfuzz(exprs, c=i, m=1.25)
 })
 ```
 
 ### Validate the optimal number of clusters
-```R
-dissE <- daisy(models$lfq)                                                                                                
-lapply(k, function(k) {                                                                                                   
-    sk <- silhouette(k$cl, dissE)                                                                                         
-    plot(sk)                                                                                                              
-    abline(v=summary(sk)$avg.width, col="red", lty=2)                                                                     
-    cat(i, "-->", sum(summary(sk)$clus.avg.widths > summary(sk)$avg.width), fill=T)                                       
 
-    x <- prcomp(models$lfq)                                                                                               
-    plot(x$x[,1], x$x[,2], type="n")                                                                                      
-    points(x$x[,1], x$x[,2], col=paste0(brewer.pal(12, "Set1")[as.factor(k$cl)], "80"), pch=20, cex=.5)                   
+```R
+dissE <- daisy(models$lfq)
+lapply(k, function(k) {
+    sk <- silhouette(k$cl, dissE)
+    plot(sk)
+    abline(v=summary(sk)$avg.width, col="red", lty=2)
+    cat(i, "-->", sum(summary(sk)$clus.avg.widths > summary(sk)$avg.width), fill=T)
+
+    x <- prcomp(models$lfq)
+    plot(x$x[, 1], x$x[, 2], type="n")
+    points(x$x[, 1], x$x[, 2], col=paste0(brewer.pal(12, "Set1")[as.factor(k$cl)], "80"), pch=20, cex=.5)
 }
 ```
 
@@ -2497,9 +2519,9 @@ Evaluate cluster strength by calculating p-values for hierarchical clustering vi
 
  load("data.RData")
 
- cl <- makeCluster(12,type="SOCK")
+ cl <- makeCluster(12, type="SOCK")
 
- result <- parPvclust(cl,data,nboot=10000) #method.dist="euclidean",method.hclust="complete",nboot=1000,init.rand=F)
+ result <- parPvclust(cl, data, nboot=10000) #method.dist="euclidean", method.hclust="complete", nboot=1000, init.rand=F)
  stopCluster(cl)
 ```
 
@@ -2519,9 +2541,9 @@ Evaluate cluster strength by calculating p-values for hierarchical clustering vi
  # 5     5      1         1
  # 6     6      0         0
 
- pred <- prediction(x$predicted,x$actual)
- perf <- performance(pred,"tpr","fpr")
- plot(perf,colorize=T,main="ROC plot")
+ pred <- prediction(x$predicted, x$actual)
+ perf <- performance(pred, "tpr", "fpr")
+ plot(perf, colorize=T, main="ROC plot")
 ```
 
 ### Impute missing values
@@ -2532,10 +2554,11 @@ Impute missing values in a table using the method of the K-Neares Neighbours and
  library(imputation)
 
  k <- cv.kNNImpute(data)$k       #cross validate by artificially erasing data and get the number of neighbours
- impdata <- kNNImpute(data,k)$x  #run with the previously obtained number of neighbours
+ impdata <- kNNImpute(data, k)$x  #run with the previously obtained number of neighbours
 ```
 
 ### Power and sample size calculation for survival analysis
+
 The calculations follow the method described in Rosner B. (2006), which was proposed on Freedman, L.S. (1982), implemented in the R package powerSurvEpi:
 
 ```R
@@ -2545,11 +2568,11 @@ library(survival)
 ## nomes del training (29 mostres HR=.03, mirar la KM)
 dat.clin <- read.csv("../RSF.nosurgery/analisi.rsf.v3.MI.csv")
 dat.clin$days  <- round(dat.clin$days / 30)
-dat.clin$days <- ifelse(dat.clin$days > 60,60,dat.clin$days)
-dat.clin$grup <- ifelse(dat.clin$grup == "baix","C","E")
-ssizeCT(formula = Surv(days,status) ~ grup, dat = dat.clin,
-        power = 0.8,k = 0.35, RR = 0.03, alpha = 0.05)
-powerCT(formula = Surv(days,status) ~ grup, dat = dat.clin,
+dat.clin$days <- ifelse(dat.clin$days > 60, 60, dat.clin$days)
+dat.clin$grup <- ifelse(dat.clin$grup == "baix", "C", "E")
+ssizeCT(formula = Surv(days, status) ~ grup, dat = dat.clin,
+        power = 0.8, k = 0.35, RR = 0.03, alpha = 0.05)
+powerCT(formula = Surv(days, status) ~ grup, dat = dat.clin,
         nE = 7, nC = 22, RR = 0.03, alpha = 0.05)
 ```
 
@@ -2586,17 +2609,17 @@ Cohen suggests that d values of 0.2, 0.5, and 0.8 represent small, medium, and l
 library(KernSmooth)
 
 optimalBandwidth <- function(x) { # return a more or less useful bandwith (from densCols)
-    bandwidth <- diff(apply(x, 2, quantile, probs=c(0.05,0.95), na.rm=T, names=F))/25
+    bandwidth <- diff(apply(x, 2, quantile, probs=c(0.05, 0.95), na.rm=T, names=F))/25
     bandwidth[bandwidth == 0] <- 1
     bandwidth
 }
 
-xy <- xy.coords(x,y)
+xy <- xy.coords(x, y)
 select <- is.finite(xy$x) & is.finite(xy$y)
-xy <- cbind(xy$x, xy$y)[select,]
-dens <- bkde2D(xy,bandwidth=optimalBandwidth(xy))
+xy <- cbind(xy$x, xy$y)[select, ]
+dens <- bkde2D(xy, bandwidth=optimalBandwidth(xy))
 maxpos <- which(dens$fhat == max(dens$fhat), arr.ind=TRUE)
-points(dens$x1[maxpos[1]], dens$x2[maxpos[2]],cex=3,pch="+")
+points(dens$x1[maxpos[1]], dens$x2[maxpos[2]], cex=3, pch="+")
 ```
 
 ### Test the significance of the overlap between 2 lists
@@ -2648,53 +2671,55 @@ plot(clp, net, vertex.frame.color="white", col=V(net)$color, mark.col="#00000010
 ## Other stuff that doesn't fit into any other category
 
 ### Supercomputing
+
 Make use of several machines cooperating together. Data may reside in the main node which is then shared via sockets to the slaves:
 
 ```R
 primary <- '192.168.1.235'
 machineAddresses <- list(
-  list(host=primary,user='johnmount',ncore=4),
-  list(host='192.168.1.70',user='johnmount',ncore=4)
+  list(host=primary, user='johnmount', ncore=4),
+  list(host='192.168.1.70', user='johnmount', ncore=4)
 )
 
-spec <- lapply(machineAddresses,function(machine) {
-  rep(list(list(host=machine$host,user=machine$user)),machine$ncore)
+spec <- lapply(machineAddresses, function(machine) {
+  rep(list(list(host=machine$host, user=machine$user)), machine$ncore)
 })
-spec <- unlist(spec,recursive=FALSE)
+spec <- unlist(spec, recursive=FALSE)
 
-parallelCluster <- parallel::makeCluster(type='PSOCK',master=primary,spec=spec)
+parallelCluster <- parallel::makeCluster(type='PSOCK', master=primary, spec=spec)
 print(parallelCluster)
 ## socket cluster with 8 nodes on hosts
 ##                   ‘192.168.1.235’, ‘192.168.1.70’
 ```
 
 ### Parse arguments
+
 This is just a suggestion on how to deal with input parms:
 
 ```R
-parseArgs <- function(args,string,default=NULL,convert="as.character") {
+parseArgs <- function(args, string, default=NULL, convert="as.character") {
 
-    if(length(i <- grep(string,args,fixed=T)) == 1)
-        return(do.call(convert,list(gsub(string,"",args[i]))))
+    if(length(i <- grep(string, args, fixed=T)) == 1)
+        return(do.call(convert, list(gsub(string, "", args[i]))))
 
-    if(!is.null(default)) default else do.call(convert,list(NA))
+    if(!is.null(default)) default else do.call(convert, list(NA))
 }
 
 args <- commandArgs(T)
-ftargets     <- parseArgs(args,"targets=","targets.txt")     # file describing the targets
-fcontrasts   <- parseArgs(args,"contrasts=","contrasts.txt") # file describing the contrasts
-mmatrix      <- parseArgs(args,"mmatrix=","~0+group")        # model matrix (or ~0+group for multiple comparisons)
-filter.genes <- parseArgs(args,"filter=",TRUE,convert="as.logical") # filter invariant genes?
-pre          <- parseArgs(args,"prefix=","")    # prefix to remove from the sample name
-suf          <- parseArgs(args,"suffix=","_readcounts.tsv")    # suffix to remove from the sample name
-cwd          <- parseArgs(args,"cwd=","./")     # current working directory
-out          <- parseArgs(args,"out=","DE.edgeR") # output filename
+ftargets     <- parseArgs(args, "targets=", "targets.txt")     # file describing the targets
+fcontrasts   <- parseArgs(args, "contrasts=", "contrasts.txt") # file describing the contrasts
+mmatrix      <- parseArgs(args, "mmatrix=", "~0+group")        # model matrix (or ~0+group for multiple comparisons)
+filter.genes <- parseArgs(args, "filter=", TRUE, convert="as.logical") # filter invariant genes?
+pre          <- parseArgs(args, "prefix=", "")    # prefix to remove from the sample name
+suf          <- parseArgs(args, "suffix=", "_readcounts.tsv")    # suffix to remove from the sample name
+cwd          <- parseArgs(args, "cwd=", "./")     # current working directory
+out          <- parseArgs(args, "out=", "DE.edgeR") # output filename
 
-runstr <- "Rscript DE.edgeR.R [targets=targets.txt] [contrasts=contrasts.txt] [mmatrix=~0+group] [filter=TRUE] [prefix=RE] [suffix=RE] [cwd=.] [out=DE.edgeR]"                                                       
-if(!file.exists(ftargets))   stop("File",ftargets,"does NOT exist. Run with:\n",runstr)
-if(!file.exists(fcontrasts)) stop("File",fcontrasts,"does NOT exist. Run with:\n",runstr)
-if(!file.exists(cwd))        stop("Dir",cwd,"does NOT exist. Run with:\n",runstr)
-if(is.na(filter.genes))      stop("Filter (filter invariant genes) has to be either TRUE or FALSE. Run with:\n",runstr)
+runstr <- "Rscript DE.edgeR.R [targets=targets.txt] [contrasts=contrasts.txt] [mmatrix=~0+group] [filter=TRUE] [prefix=RE] [suffix=RE] [cwd=.] [out=DE.edgeR]"
+if(!file.exists(ftargets))   stop("File", ftargets, "does NOT exist. Run with:\n", runstr)
+if(!file.exists(fcontrasts)) stop("File", fcontrasts, "does NOT exist. Run with:\n", runstr)
+if(!file.exists(cwd))        stop("Dir", cwd, "does NOT exist. Run with:\n", runstr)
+if(is.na(filter.genes))      stop("Filter (filter invariant genes) has to be either TRUE or FALSE. Run with:\n", runstr)
 ```
 
 ### Write data into an Excel shit
@@ -2704,12 +2729,12 @@ Exporting dataframes into Excel shits can be done through the ''WriteXLS'' packa
 ```R
 require("WriteXLS")
 
-df1 <- as.data.frame(matrix(rnorm(100  ),ncol=10))
-df2 <- as.data.frame(matrix(rnorm(1000 ),ncol=10))
-df3 <- as.data.frame(matrix(rnorm(10000),ncol=10))
+df1 <- as.data.frame(matrix(rnorm(100  ), ncol=10))
+df2 <- as.data.frame(matrix(rnorm(1000 ), ncol=10))
+df3 <- as.data.frame(matrix(rnorm(10000), ncol=10))
 
-out <- list(df1,df2,df3)
-WriteXLS("out",ExcelFileName="R.xls",SheetNames=c("dataframe1","dataframe2","dataframe3"))
+out <- list(df1, df2, df3)
+WriteXLS("out", ExcelFileName="R.xls", SheetNames=c("dataframe1", "dataframe2", "dataframe3"))
 ```
 
 Keep in mind the limitations of both formats (xls=64K rows, 256 columns, xlsx= 1M rows, 16K columns).
@@ -2743,26 +2768,27 @@ Access a local SQLite database using the ''DBI'' and ''SQLite'' packages:
  con <- dbConnect(drv, dbname="knowngenes.db")
 
  ## database access
- obtenirRegio <- function(chr,pos,strand) {
+ obtenirRegio <- function(chr, pos, strand) {
 
-     chr    <- paste("chr",chr,sep="")
-     strand <- ifelse(strand == "F","+","-")
+     chr    <- paste("chr", chr, sep="")
+     strand <- ifelse(strand == "F", "+", "-")
 
-     query <- paste("SELECT name,txStart,txEnd from genes",
+     query <- paste("SELECT name, txStart, txEnd from genes",
                     " WHERE chrom=?",
                     "   AND ? BETWEEN txStart-1500 AND txEnd+1500",
                     "   AND strand != ?")
 
-     regio <- dbGetQuery(con,query,data.frame(chr,pos,strand))
+     regio <- dbGetQuery(con, query, data.frame(chr, pos, strand))
 
-     return(c(paste(regio$name,collapse=";"),paste(regio$txStart,collapse=";"),paste(regio$txEnd,collapse=";")))
+     return(c(paste(regio$name, collapse=";"), paste(regio$txStart, collapse=";"), paste(regio$txEnd, collapse=";")))
  }
 
 
- regio <- apply(fData450k[,c("chr","pos","strand")],1,obtenirRegio)
+ regio <- apply(fData450k[, c("chr", "pos", "strand")], 1, obtenirRegio)
 ```
 
 ### Show a progress bar
+
 The trick here is to print the "\r" special character to get to the first column of the current row of the screen, thus overwritting what has just been displayed:
 
 ```R
@@ -2770,21 +2796,21 @@ The trick here is to print the "\r" special character to get to the first column
 # progress bar
 progress.old <<- 0
 progress <- function(current) {
-	if(current > progress.old) {	# just print every 1% increase, not for every step
-		cat(paste(c("\r[",rep("=",current),rep(" ",100-current),"]",current,"%"),collapse=""))
-		flush.console()
-		progress.old <<- current
-	}
+  if(current > progress.old) {  # just print every 1% increase, not for every step
+    cat(paste(c("\r[", rep("=", current), rep(" ", 100-current), "]", current, "%"), collapse=""))
+    flush.console()
+    progress.old <<- current
+  }
 }
 
 s <- rnorm(1000000)
 
 for(i in 1:length(s)) {
 
-	# print the progress bar
-	progress(round(100 * i / length(s)))
+  # print the progress bar
+  progress(round(100 * i / length(s)))
 
-	# (your code here)
+  # (your code here)
 }
 ```
 
@@ -2798,21 +2824,21 @@ library(tiff)
 CORES <- 32
 
 # calculations part
-img <- mclapply(1:1000000,function(i) {
+img <- mclapply(1:1000000, function(i) {
     # some very heavy computation
-    tmp   <- paste0("./tmp/",as.character(as.hexmode(round(rnorm(1) * 2^28))),".tiff")
+    tmp   <- paste0("./tmp/", as.character(as.hexmode(round(rnorm(1) * 2^28))), ".tiff")
     tiff(tmp)
     # plot whatever
     dev.off()
     tmp
-},mc.cores=CORES)
+}, mc.cores=CORES)
 
 # plotting part
 pdf("plot.pdf")
-lapply(img,function(tmp) {
-    img <- readTIFF(tmp,native=T)
-    plot(1:2,type="n",bty="n",axes=F,xlab="",ylab="")
-    rasterImage(img,1,1,2,2)
+lapply(img, function(tmp) {
+    img <- readTIFF(tmp, native=T)
+    plot(1:2, type="n", bty="n", axes=F, xlab="", ylab="")
+    rasterImage(img, 1, 1, 2, 2)
     file.remove(tmp)
 })
 dev.off()
@@ -2837,3 +2863,4 @@ res <- data.table::rbindlist(mclapply(split(x, x$key), function(x) {
     x[which.min(x$distance), ]
 }, mc.cores=getOption("mc.cores", 4L)))
 ```
+
