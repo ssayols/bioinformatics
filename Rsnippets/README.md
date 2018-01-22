@@ -45,7 +45,7 @@
    * [Pairs plot (nice)](#pairs-plot-nice)
    * [Placing multiple plots in the same device](#placing-multiple-plots-in-the-same-device)
    * [Placing multiple plots in the same device using ''ggplot'' the ''grid'' package](#placing-multiple-plots-in-the-same-device-using-ggplot-the-grid-package)
-   * [Heatmap + Upset](#heatmap-upset)
+   * [Heatmap + Upset](#heatmap-+-upset)
    * [Venn Diagrams](#venn-diagrams)
    * [Calling gnuplot](#calling-gnuplot)
    * [Density 2d plots](#density-2d-plots)
@@ -114,6 +114,7 @@
    * [Write data into an Excel shit](#write-data-into-an-excel-shit)
    * [Read data from an Excel shit](#read-data-from-an-excel-shit)
    * [SQLite database access](#sqlite-database-access)
+   * [Other databases](#other-databases)
    * [Show a progress bar](#show-a-progress-bar)
    * [Parallelize code that generates PDF plots](#parallelize-code-that-generates-pdf-plots)
    * [Parallel by](#parallel-by)
@@ -2785,6 +2786,24 @@ Access a local SQLite database using the ''DBI'' and ''SQLite'' packages:
 
 
  regio <- apply(fData450k[, c("chr", "pos", "strand")], 1, obtenirRegio)
+```
+
+### Other databases
+
+MySQL, for intsance. All drivers use a similar (same?) API:
+
+```R
+library(RMySQL)
+mydb <- dbConnect(MySQL(), 
+                  user='reader',
+                  password='reader',
+                  dbname='homo_sapiens_core_70_37',
+                  host='vieciaepg.eu.boehringer.com')
+dbListTables(mydb)
+x <- dbSendQuery(mydb, 'select * from gene;')
+x <- fetch(x, n=5)
+# or
+x <- dbGetQuery(mydb, 'select * from gene;')
 ```
 
 ### Show a progress bar
