@@ -103,8 +103,9 @@
    * [Evaluate cluster strength](#evaluate-cluster-strength)
    * [Calculate ROC curves from a predictor using the ''ROCR'' package](#calculate-roc-curves-from-a-predictor-using-the-rocr-package)
    * [Impute missing values](#impute-missing-values)
+   * [Geometric mean](#geometric-mean)
+   * [Power analysis](#power-analysis)
    * [Power and sample size calculation for survival analysis](#power-and-sample-size-calculation-for-survival-analysis)
-   * [Model normally distributed data](#model-normally-distributed-data)
    * [Calculate the center of a 2d-distribution](#calculate-the-center-of-a-2d-distribution)
    * [Test the significance of the overlap between 2 lists](#test-the-significance-of-the-overlap-between-2-lists)
    * [Network analysis](#network-analysis)
@@ -2549,7 +2550,7 @@ Evaluate cluster strength by calculating p-values for hierarchical clustering vi
 
 ### Impute missing values
 
-Impute missing values in a table using the method of the K-Neares Neighbours and the ''imputation'' package
+Impute missing values in a table using the method of the K-Nearest Neighbours and the ''imputation'' package
 
 ```R
  library(imputation)
@@ -2558,26 +2559,17 @@ Impute missing values in a table using the method of the K-Neares Neighbours and
  impdata <- kNNImpute(data, k)$x  #run with the previously obtained number of neighbours
 ```
 
-### Power and sample size calculation for survival analysis
+Also, other methods like Random Forests have a fancy way to impute missing values.
 
-The calculations follow the method described in Rosner B. (2006), which was proposed on Freedman, L.S. (1982), implemented in the R package powerSurvEpi:
+### Geometric mean
 
 ```R
-library(powerSurvEpi)
-library(survival)
-
-## nomes del training (29 mostres HR=.03, mirar la KM)
-dat.clin <- read.csv("../RSF.nosurgery/analisi.rsf.v3.MI.csv")
-dat.clin$days  <- round(dat.clin$days / 30)
-dat.clin$days <- ifelse(dat.clin$days > 60, 60, dat.clin$days)
-dat.clin$grup <- ifelse(dat.clin$grup == "baix", "C", "E")
-ssizeCT(formula = Surv(days, status) ~ grup, dat = dat.clin,
-        power = 0.8, k = 0.35, RR = 0.03, alpha = 0.05)
-powerCT(formula = Surv(days, status) ~ grup, dat = dat.clin,
-        nE = 7, nC = 22, RR = 0.03, alpha = 0.05)
+gm_mean <- function(x, na.rm=TRUE){
+  exp(sum(log(x[x > 0]), na.rm=na.rm) / length(x))
+}
 ```
 
-### Model normally distributed data
+### Power analysis
 
 Most of the thoughts, text and formulas are extracted from [http://www.statmethods.net/stats/power.html statmethods].
 
@@ -2603,6 +2595,25 @@ For t-tests, the effect size is assessed as d = |u_1 - u_2| / sd, where u_1=mean
 For ANOVA, the effect size is defined as f = sqrt( sum(p_i * (u_i - u)^2) / sd^2), where p_i is the percentage of samples in group i.
 
 Cohen suggests that d values of 0.2, 0.5, and 0.8 represent small, medium, and large effect sizes respectively.
+
+### Power and sample size calculation for survival analysis
+
+The calculations follow the method described in Rosner B. (2006), which was proposed on Freedman, L.S. (1982), implemented in the R package powerSurvEpi:
+
+```R
+library(powerSurvEpi)
+library(survival)
+
+## nomes del training (29 mostres HR=.03, mirar la KM)
+dat.clin <- read.csv("../RSF.nosurgery/analisi.rsf.v3.MI.csv")
+dat.clin$days  <- round(dat.clin$days / 30)
+dat.clin$days <- ifelse(dat.clin$days > 60, 60, dat.clin$days)
+dat.clin$grup <- ifelse(dat.clin$grup == "baix", "C", "E")
+ssizeCT(formula = Surv(days, status) ~ grup, dat = dat.clin,
+        power = 0.8, k = 0.35, RR = 0.03, alpha = 0.05)
+powerCT(formula = Surv(days, status) ~ grup, dat = dat.clin,
+        nE = 7, nC = 22, RR = 0.03, alpha = 0.05)
+```
 
 ### Calculate the center of a 2d-distribution
 
