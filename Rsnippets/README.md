@@ -2128,13 +2128,15 @@ clusterEvalQ(cl, library(GOSemSim))
 # calculate the semantic similarity with previous terms (from bottom (less signif) to top)
 goterms <- goterms[order(goterms$Pvalue), ]
 goterms <- goterms[1:min(c(MAXTERMS, nrow(goterms))), ]
+semdata <- godata("org.Hs.eg.db", ont="BP")
+suppressMessages(clusterExport(cl, c("goterms", "semdata")))
 drop <- parLapply(cl, nrow(goterms):2, function(i, goterms) {
     semsim <- lapply((i-1):1, function(j) {
-        goSim(goterms$GOBPID[i], goterms$GOBPID[j], semData=godata("org.Hs.eg.db", ont="BP"), measure="Rel")
+        goSim(goterms$GOBPID[i], goterms$GOBPID[j], semData=semdata, measure="Rel")
     })
     # drop if there was a similar term with lower FDR
     any(semsim > .7, na.rm=T)
-}, goterms)
+})
 
 drop <- c(FALSE, rev(unlist(drop)))
 goterms.reduced <- goterms[!drop, ]  # take just the columns you want...
@@ -2185,15 +2187,16 @@ First one needs to calculate the similarity scores between terms, and cluster th
 library(parallel)  # create your cluster of workers
 library(GOSemSim)
 
+semdata <- godata("org.Hs.eg.db", ont="BP")
 scores <- {
     x <- goterms$GOBPID[order(goterms$Pvalue)][1:min(c(MAXTERMS, length(goterms$GOBPID)))]
-    parSapply(cl, 1:length(x), function(i, x) {
+    parSapply(cl, 1:length(x), function(i, x, semdata) {
         c(rep(NA, i-1),
             sapply(i:length(x), function(j, i) {
-                goSim(x[i], x[j], ont="BP", measure="Wang", organism="fly")
+                goSim(x[i], x[j], semData=semdata, measure="Wang")
             }, i)
         )
-    }, x)
+    }, x, semdata)
 }
 rownames(scores) <- colnames(scores) <- goterms$GOBPID
 
@@ -2252,6 +2255,8 @@ print(p)
 
 Pre-render the table of all GO terms by semantic similarity. This is a one-time and extremely time consuming task that is worth having it pre-calculated before reducing any list of GO terms.
 
+See [gist](https://gist.github.com/ssayols/296a1de802440f2db6c065f968aecd24).
+
 ```R
 library(parallel)
 library(org.Dm.eg.db)
@@ -2264,15 +2269,19 @@ LOG="semsim.Dm.log"
 cl <- makeCluster(CORES)
 x  <- clusterEvalQ(cl, library(GOSemSim))
 
-# get all GO terms from the annotation and calculate the Wang similarity scores
+# get all GO terms from the annotation 
 goterms <- Rkeys(org.Dm.egGO)
+semdata <- godata("org.Hs.eg.db", ont="BP")
 cat(length(goterms), file=LOG, append=F, fill=T)
-x <- clusterExport(cl, "goterms")
+suppressMessages(clusterExport(cl, c("goterms", "semdata")))
+
+# calculate the Wang similarity scores
+# for some reason, parallelizing the inner loop is ~30% faster
 reduced <- sapply(1:length(goterms), function(i) {
     cat(".", file=LOG, append=T)
     c(rep(NA, i-1),
         parSapply(cl, i:length(goterms), function(j, i) {
-            goSim(goterms[i], goterms[j], ont="BP", measure="Wang", organism="fly")
+            goSim(goterms[i], goterms[j], semData=semdata, measure="Wang")
         }, i)
     )
 })
