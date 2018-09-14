@@ -2110,6 +2110,8 @@ How large would you like the resulting list to be?
 * Small (0.5)
 * Tiny (0.4)
 
+See [gist](https://gist.github.com/ssayols/296a1de802440f2db6c065f968aecd24).
+
 ```R
 # goterms is the results of gostats as a dataframe or something similar
 # (it will work as long as the Pvalue and GOBPID columns are present)
@@ -2291,6 +2293,41 @@ colnames(reduced) <- rownames(reduced) <- goterms
 write.csv(reduced, file="semsim.Dm.csv")
 
 stopCluster(cl)
+```
+
+***Note***: the Rcpp code is fast and efficient, and tables can be computed on the way. See gist, or basically this code:
+
+```R
+library(GOSemSim)
+
+ORGDBs <- c("org.Ag.eg.db", "org.At.tair.db", "org.Bt.eg.db", "org.Ce.eg.db", "org.Cf.eg.db", "org.Dm.eg.db", "org.Dr.eg.db", "org.EcK12.eg.db", "org.EcSakai.eg.db", "org.Gg.eg.db", "org.Hs.eg.db", "org.Mm.eg.db", "org.Mmu.eg.db", "org.Pf.plasmo.db", "org.Pt.eg.db", "org.Rn.eg.db", "org.Sc.sgd.db", "org.Ss.eg.db", "org.Xl.eg.db")
+ONTs <- c("BP", "MF", "CC")
+METHODs <- c("Resnik", "Lin", "Rel", "Jiang", "Wang")
+
+tables <- lapply(ORGDBs, function(ORGDB) {
+
+  if(!require(ORGDB, char=TRUE)) {
+    source("http://bioconductor.org/biocLite.R")
+    biocLite(ORGDB)
+    require(ORGDB, char=TRUE)
+  }
+  orgDb <- eval(parse(text=ORGDB))
+
+  lapply(ONTs, function(ONT) {
+    lapply(METHODs, function(METHOD) {
+      goAnno  <- suppressMessages(
+        select(orgDb,
+               keys=keys(orgDb, keytype = "ENTREZID"),
+               keytype="ENTREZID",
+               columns=c("GO", "ONTOLOGY"))
+      )
+      goAnno  <- goAnno[!is.na(goAnno$GO), ]
+      goterms <- unique(goAnno$GO[goAnno$ONTOLOGY == ONT])
+      semdata <- godata(ORGDB, ont=ONT)
+      goSim(goterms, goterms, semData=semdata, measure=METHOD)
+    })
+  })
+})
 ```
 
 ### Basic matrix normalization
