@@ -1,0 +1,781 @@
+---
+title: "project_title"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+
+```{r setup}
+library(grid)
+library(gridExtra)
+library(ggplot2)
+library(ggrepel)
+library(RColorBrewer)
+library(viridis)
+library(parallel)
+
+GTF     <- "./annotation/Mus_musculus.GRCm38.88+ERCC92.gtf"
+PROJECT <- "./project.dir"
+pal     <- brewer.pal(9, "Set1")
+CORES   <- 4
+NMADS   <- 2    # number of median absolut distances used to filter out cells
+PERP    <- 10   # perplexity parameter for the t-SNE plots
+MIN_DETECT_GENE <- .01 # kepp genes expressed in at least MIN_DETECT_GENE% cells
+MITO_ANNOTATION <- "./annotation/genesMT.txt"
+
+knitr::opts_knit$set(root.dir=PROJECT)
+knitr::opts_chunk$set(cache=TRUE)
+options(mc.cores=getOption("mc.cores", CORES))
+```
+
+# Intro
+
+Single cell analysis of 144 Epithelial and 144 Mesenchymal cells from E13.5 mouse embryos' guts.
+
+The analysis workflow is based on the Bioconductor package *scater* and the Bioconductor workshop published in F1000 Research: Lun, A. T. L., McCarthy, D. J., & Marioni, J. C. (2016). *A step-by-step workflow for low-level analysis of single-cell RNA-seq data.* F1000Research, 5(0), 2122. http://doi.org/10.12688/f1000research.9501.1
+
+# Analysis
+
+## Read gene annnotation
+
+```{r, message=FALSE, warning=FALSE}
+library(rtracklayer)
+gtf <- import.gff(GTF, format="gtf", feature.type="exon")
+```
+
+## Load counts
+
+```{r, message=FALSE}
+library(SingleCellExperiment)
+library(scater)  # Single-cell analysis toolkit for gene expression data
+library(scran)   # Methods for single-cell rnaseq data analysis
+
+f <- list.files("./results/subread-count", pattern="\\.readcounts\\.tsv$", full.names=TRUE)
+readcounts <- mclapply(f, read.delim, head=FALSE, row.names=1, mc.cores=CORES)
+stopifnot(all(sapply(readcounts, function(x) all(rownames(x) == rownames(readcounts[[1]])))))
+readcounts <- as.matrix(do.call(cbind, readcounts))
+colnames(readcounts) <- sub("\\.readcounts\\.tsv$", "", basename(f))
+rownames(readcounts) <- sub("\\..+$", "", rownames(readcounts))  # removes gene version suffixes if available (e.g. Gencode)
+```
+
+Add some metadata to the dataset:
+
+```{r}
+cData <- data.frame(bp   =factor(gsub("^.+_(.+_.+)_.+_.+_.+_.+$", "\\1", colnames(readcounts))),
+                    batch=factor(gsub("^.+_(.+)_.+_.+_.+_.+_.+$", "\\1", colnames(readcounts))),
+                    plate=factor(gsub("^.+_.+_(.+)_.+_.+_.+_.+$", "\\1", colnames(readcounts))),
+                    row  =factor(gsub("^.+_.+_.+_([A-Z])\\d{2}_.+_.+_.+$", "\\1", colnames(readcounts))),
+                    col  =factor(gsub("^.+_.+_.+_[A-Z](\\d{2})_.+_.+_.+$", "\\1", colnames(readcounts))),
+                    cells=factor(gsub("^.+_.+_.+_.+_(.+)_.+_.+$", "\\1", colnames(readcounts))),
+                    sort =factor(gsub("^.+_.+_.+_.+_.+_(.+)_.+$", "\\1", colnames(readcounts))))
+```
+
+and create the data structure to hold the single cell data
+
+```{r}
+sce <- SingleCellExperiment(assays=list(counts=readcounts, logcounts=log2(readcounts + 1)), colData=cData)
+dim(sce)
+```
+
+## Quality of the cells and RNA sequenced
+
+To asses if the sequenced libraries are usable and the RNA captured  represents a meaningful fraction of the RNA present in the cell, we'll focus in the following factors:
+
+* Library size: cells with small library size mean RNA was not efficiently captured.
+* Number of expressed genes: few expressed genes mean a diverse transcript population was not captured.
+* Proportion of reads mapping to mythocondrial genes: high proportion mean increased apoptosis and/or loss of cytoplasmatic RNA from lysed cells.
+* Proportion of spike-in RNA is constant: loss of endogenous RNA means higher proportions of spike-in.
+
+```{r}
+is.mito  <- rownames(sce) %in% read.delim(MITO_ANNOTATION)[, 1]
+is.spike <- grepl("^ERCC", rownames(sce))
+sce <- calculateQCMetrics(sce, nmads=NMADS,
+                          feature_controls=list(ERCC=is.spike, Mt=is.mito),
+                          cell_controls=sce$cells != "1c")
+isSpike(sce, "ERCC") <- is.spike  # explicitly indicate that the ERCC set is a spike-in set
+
+MAD <- function(x, n) {
+  constant <- 1.4826 # keep consistency with sd in normally distributed data (see ?stats::mad)
+  list(low =median(x) - n * constant * median(abs(x - median(x))),
+       high=median(x) + n * constant * median(abs(x - median(x))))
+}
+
+# create a data set without the controls
+sce.qc <- sce[, sce$cells == "1c"]
+
+# plot metrics
+par(mfrow=c(2, 2))
+
+# library size
+hist(sce.qc$total_counts_endogenous/1e6, xlab="Library sizes (millions)", ylab="Number of cells",
+     main="", breaks=20, col="grey80")
+abline(v=c(median(sce.qc$total_counts_endogenous/1e6), MAD(sce.qc$total_counts_endogenous/1e6, NMADS)$low),
+       col=c("blue", "red"), lty=2)
+
+# number of expressed genes
+hist(sce.qc$total_features, xlab="Number of expressed genes", ylab="Number of cells",
+     main="", breaks=20, col="grey80")
+abline(v=c(median(sce.qc$total_features), MAD(sce.qc$total_features, NMADS)$low),
+       col=c("blue", "red"), lty=2)
+
+# reads mapping to Mt genes
+hist(sce.qc$pct_counts_Mt, xlab="Mitochondrial proportion (%)", ylab="Number of cells",
+     breaks=20, main="", col="grey80")
+abline(v=c(median(sce.qc$pct_counts_Mt), 5),
+       col=c("blue", "red"), lty=2)
+
+# reads mapping to spike-in
+hist(sce.qc$pct_counts_ERCC, xlab="ERCC proportion (%)", ylab="Number of cells",
+     breaks=20, main="", col="grey80")
+abline(v=c(median(sce.qc$pct_counts_ERCC), MAD(sce.qc$pct_counts_ERCC, NMADS)$high),
+       col=c("blue", "red"), lty=2)
+```
+
+Splitting by *sort*:
+
+```{r}
+hist2 <- function(x, ...) {
+  hist(x[[1]], col=scales::alpha(pal[1], 2/3), border=F, ...)
+  lapply(2:length(x), function(i) hist(x[[i]], col=scales::alpha(pal[i], 2/3), add=T, border=F, ...))
+  legend("topright", fill=pal[1:length(x)], legend=names(x))
+}
+
+# library size
+hist2(split(sce.qc$total_counts_endogenous/1e6, sce.qc$sort), main="",
+      xlab="Library sizes (millions)", ylab="Number of cells")
+abline(v=c(median(sce.qc$total_counts_endogenous/1e6), MAD(sce.qc$total_counts_endogenous/1e6, NMADS)$low),
+       col=c("blue", "red"), lty=2)
+
+# number of expressed genes
+hist2(split(sce.qc$total_features, sce.qc$sort), main="", breaks=20,
+      xlab="Number of expressed genes", ylab="Number of cells")
+abline(v=c(median(sce.qc$total_features), MAD(sce.qc$total_features, NMADS)$low),
+       col=c("blue", "red"), lty=2)
+
+# reads mapping to Mt genes
+hist2(split(sce.qc$pct_counts_Mt, sce.qc$sort), main="", breaks=20,
+      xlab="Mitochondrial proportion (%)", ylab="Number of cells")
+abline(v=c(median(sce.qc$pct_counts_Mt), 5),
+       col=c("blue", "red"), lty=2)
+
+# reads mapping to spike-in
+hist2(split(sce.qc$pct_counts_ERCC, sce.qc$sort), main="", breaks=20,
+      xlab="ERCC proportion (%)", ylab="Number of cells")
+abline(v=c(median(sce.qc$pct_counts_ERCC), MAD(sce.qc$pct_counts_ERCC, NMADS)$high),
+       col=c("blue", "red"), lty=2)
+```
+
+Splitting by *batch* and *plate* (too many categories, replace hist by a density plot):
+
+```{r}
+dens2 <- function(x, ...) {
+  ymax <- Reduce(max, lapply(x, function(x) density(x)$y))
+  plot(density(x[[1]]), col=scales::alpha(pal[1], 2/3), bty="n", ylim=c(0, ymax), ...)
+  lapply(2:length(x), function(i) lines(density(x[[i]]), col=scales::alpha(pal[i], 2/3)))
+  legend("topright", fill=pal[1:length(x)], legend=names(x))
+}
+
+# library size
+dens2(split(sce.qc$total_counts_endogenous/1e6, sce.qc$bp), main="",
+      xlab="Library sizes (millions)", ylab="Number of cells")
+abline(v=c(median(sce.qc$total_counts_endogenous/1e6), MAD(sce.qc$total_counts_endogenous/1e6, NMADS)$low),
+       col=c("blue", "red"), lty=2)
+
+# number of expressed genes
+dens2(split(sce.qc$total_features, sce.qc$bp), main="",
+      xlab="Number of expressed genes", ylab="Number of cells")
+abline(v=c(median(sce.qc$total_features), MAD(sce.qc$total_features, NMADS)$low),
+       col=c("blue", "red"), lty=2)
+
+# reads mapping to Mt genes
+dens2(split(sce.qc$pct_counts_Mt, sce.qc$bp), main="",
+      xlab="Mitochondrial proportion (%)", ylab="Number of cells")
+abline(v=c(median(sce.qc$pct_counts_Mt), 5),
+       col=c("blue", "red"), lty=2)
+
+# reads mapping to spike-in
+dens2(split(sce.qc$pct_counts_ERCC, sce.qc$bp), main="",
+      xlab="ERCC proportion (%)", ylab="Number of cells")
+abline(v=c(median(sce.qc$pct_counts_ERCC), MAD(sce.qc$pct_counts_ERCC, NMADS)$high),
+       col=c("blue", "red"), lty=2)
+```
+
+Summary df with cells that don't pass the QC (will remove outliers outside `r NMADS` MADs away from the median):
+
+```{r}
+qc.drop <- data.frame(libsize=sce$total_counts_endogenous < MAD(sce.qc$total_counts_endogenous, NMADS)$low,
+                      feature=sce$total_features          < MAD(sce.qc$total_features, NMADS)$low,
+                      mito   =sce$pct_counts_Mt           > MAD(sce.qc$pct_counts_Mt, NMADS)$high,
+                      spike  =sce$pct_counts_ERCC         > MAD(sce.qc$pct_counts_ERCC, NMADS)$high,
+                      row.names=colnames(sce))
+qc.drop$pass <- !apply(qc.drop, 1, any)
+```
+
+The quality metrics taken into account can correlate between them:
+
+```{r}
+library(corrplot)
+j <- c("total_counts", "total_features", "pct_counts_Mt", "pct_counts_ERCC")
+corrplot.mixed(cor(as.matrix(colData(sce)[, j])))
+```
+
+These quality metrics can be summarized in a PCA:
+
+```{r}
+pcavars <- c("pct_counts_top_100_features",          # from scater::runPCA() "_controls$" doesn't exist
+             "pct_counts_feature_control",
+             "total_features",
+             "total_features_feature_control",
+             "log10_total_counts_endogenous",
+             "log10_total_counts_feature_control") 
+
+pca <- as.data.frame(plotPCA(sce, pca_data_input="pdata", selected_variables=pcavars,
+                             return_SCE=TRUE, draw_plot=FALSE)@reducedDims[[1]])
+pca <- cbind(pca, qc.drop[match(rownames(pca), rownames(qc.drop)), ])
+pca$cells  <- sce$cells[match(rownames(pca), colnames(sce))]
+
+plotPCA(sce, pca_data_input="pdata", colour_by="sort", selected_variables=pcavars) +
+  geom_point(aes(x=PC1, y=PC2, shape=factor(1), color=factor(1)), subset(pca, libsize), size=2) +
+  geom_point(aes(x=PC1, y=PC2, shape=factor(2), color=factor(2)), subset(pca, feature), size=2) +
+  geom_point(aes(x=PC1, y=PC2, shape=factor(3), color=factor(3)), subset(pca, mito)   , size=2) +
+  geom_text_repel(aes(x=PC1, y=PC2, label=cells), subset(pca, cells %in% c("0c", "2c", "10c"))) +
+  scale_shape_manual("QC drop", guide="legend", values=c(2, 3, 4, 6),
+                     labels=c("libsize", "genes detected", "Mt fraction", "ERCC fraction")) +
+  scale_color_manual("QC drop", guide="legend", values=pal[1:4],
+                     labels=c("libsize", "genes detected", "Mt fraction", "ERCC fraction")) +
+  theme_bw()
+```
+
+```{r}
+plotPCA(sce, pca_data_input="pdata", colour_by="bp", selected_variables=pcavars) +
+  geom_point(aes(x=PC1, y=PC2, shape=factor(1), color=factor(1)), subset(pca, libsize), size=2) +
+  geom_point(aes(x=PC1, y=PC2, shape=factor(2), color=factor(2)), subset(pca, feature), size=2) +
+  geom_point(aes(x=PC1, y=PC2, shape=factor(3), color=factor(3)), subset(pca, mito)   , size=2) +
+  geom_text_repel(aes(x=PC1, y=PC2, label=cells), subset(pca, cells %in% c("0c", "2c", "10c"))) +
+  scale_shape_manual("QC drop", guide="legend", values=c(2, 3, 4, 6),
+                     labels=c("libsize", "genes detected", "Mt fraction", "ERCC fraction")) +
+  scale_color_manual("QC drop", guide="legend", values=pal[1:4],
+                     labels=c("libsize", "genes detected", "Mt fraction", "ERCC fraction")) +
+  theme_bw()
+```
+
+## Filtering out low quality cells
+
+```{r}
+j <- c("total_counts_endogenous", "total_features", "pct_counts_Mt")
+x <- cbind(qc.drop, colData(sce)[match(rownames(qc.drop), colnames(sce)), j])
+knitr::kable(as.data.frame(apply(qc.drop, 2, sum)), col.names="cells", caption="Totals")
+x$pct_counts_Mt   <- round(x$pct_counts_Mt  , digits=2) 
+DT::datatable(as.data.frame(x[!x$pass, ]))
+
+sce <- sce[, qc.drop$pass]
+```
+
+## Filtering out control wells
+
+Remove wells we used as controls, with 0, 2 and 10 cells.
+
+```{r removeControlWells}
+sce <- sce[, sce$cells == "1c"]
+```
+
+## Filtering out low abundance genes
+
+Low abundance genes are likely to be dominated by drop-out events (Poisson noise in different cells). They don't contain enough information for statistical inference, and may compromise accuracy of continuous apporximations when fitting the data (edgeR BCV estimation).
+
+Some qc: average counts per gene should correlate with number of cells expressing it:
+
+```{r}
+grid.newpage()
+avg.counts <- apply(counts(sce), 1, mean)    # average counts per gene
+expressed.cells <- nexprs(sce, byrow=TRUE)   # number of cells expressing the gene
+smoothScatter(log10(avg.counts), expressed.cells,
+              xlab=expression("Log10 average count"), ylab= "Number of expressing cells")
+
+points(log10(avg.counts[isSpike(sce)]), expressed.cells[isSpike(sce)], col="red", pch=16, cex=.5)
+```
+
+If we look at the most highly expressed genes, it should correspond to ribosomal and mitochondrial proteins:
+
+```{r}
+plotHighestExprs(sce)
+```
+
+Here, we filter out genes with no expression in 1-MIN_DETECT_GENE percent of the cells:
+
+```{r}
+sce <- sce[expressed.cells > ceiling(MIN_DETECT_GENE * ncol(sce)), ]
+```
+
+## Normalization of cell-specific biases
+
+Normalization is required to eliminate these cell-specific differences in capture efficiency, prior to downstream quantitative analyses.
+
+Size factors can be calculated with DESeq2 or edgeR, but this methods don't work well with single-cell data due to the dominance of low and zero counts. To overcome this, we use the method from (Lun et al., 2016) implemented in the *cran* package, which pools counts from many cells to estimate the size factors, to finally deconvolute them to cell-specific factors.
+
+```{r, warning=FALSE, message=FALSE}
+clusters <- quickCluster(sce)  # naively cluster similar cells based on rank correlations in their gene expression profiles
+sce <- computeSumFactors(sce, cluster=clusters)
+summary(sizeFactors(sce))
+
+par(mfrow=c(2, 2))
+
+b1 <- sce$batch == "b1"   # mark cells sequenced in the first batch
+
+# total counts
+plot(sizeFactors(sce), sce$total_counts / 1e6, log="xy", pch=16, col="#00000050",
+     ylab="Library size (millions)", xlab="Size factor")
+points(sizeFactors(sce)[b1], sce$total_counts[b1] / 1e6, col="red") 
+legend("topleft", fill="red", bty="n", legend="batch 1")
+
+# total counts on genes (no ERCC)
+plot(sizeFactors(sce), sce$total_counts_endogenous / 1e6, log="xy", pch=16, col="#00000050",
+     ylab="Counts on endogenous features (millions)", xlab="Size factor")
+points(sizeFactors(sce)[b1], sce$total_counts_endogenous[b1] / 1e6, col="red") 
+legend("bottomright", fill="red", bty="n", legend="batch 1")
+```
+
+Size factors computed from the counts for endogenous genes are usually not appropriate for normalizing the counts for spike-in transcripts. To ensure normalization is performed correctly, we compute a separate set of size factors for the spike-in set:
+
+```{r}
+sce <- computeSpikeFactors(sce, type="ERCC", general.use=FALSE)
+```
+
+Finally, normalized log-expression values are computed for each endogenous gene or spike-in transcript using the appropriate size factors.
+
+```{r}
+sce <- normalize(sce)
+```
+
+Since we saw differences in the 2 batches, based on info displayed in the PCA plots and also the previous sizefactors, we decide to normalize the expression values by batch.
+
+Some notes:
+
+* default is to store in the norm_exprs(sce) slot the same as in exprs(sce)
+* keep the linear model's factors used afterwards consistent with the factors used here (or at least more or less)
+* the norm_exprs(sce) slot is to be used only for plots or identification of subpopulations,
+* where we cannot make use of the linear model.
+
+```{r}
+library(limma)
+grid.newpage()
+plotExplanatoryVariables(sce, variables=c("log10_total_counts_ERCC", "batch", "bp"))
+norm_exprs(sce) <- removeBatchEffect(exprs(sce), batch=sce$bp)
+```
+
+## Classification of cell cycle phase
+
+We use the prediction method described by Scialdone et al. (2015) to classify cells into cell cycle phases based on the gene expression data. Pre-trained classifiers are available in scran for human and mouse data. The mouse classifier used here was trained on data from embryonic stem cells.
+
+```{r}
+mm.pairs <- readRDS(system.file("exdata", "mouse_cycle_markers.rds", package="scran"))
+assignments <- cyclone(sce, mm.pairs)
+sce$cycle <- factor(ifelse(assignments$scores$G1  > .5, "G1",
+                    ifelse(assignments$scores$G2M > .5, "G2M", "S")))
+colData(sce) <- cbind(colData(sce), assignments$scores)
+plot(0, xlim=c(0, 1), ylim=c(0, 1), type="n", xlab="G1 score", ylab="G2/M score")
+points(assignments$scores$G1, assignments$scores$G2M, col=scales::alpha(pal[factor(sce$sort)], .5), pch=16)
+abline(h=.5, v=.5, lty=2, col="red")
+text(x=c(.25, .75, .25, .75), y=c(.75, .75, .25, .25), labels=c("G2", "S", "S", "G1"))
+legend("topright", fill=pal[1:2], legend=levels(factor(sce$sort)))
+```
+
+Cells are classified as being in G1 phase if the G1 score is above 0.5 and greater than the G2/M score; in G2/M phase
+if the G2/M score is above 0.5 and greater than the G1 score; and in S phase if neither score is above 0.5.
+
+## Identifying correlated HVGs
+
+Estimation of the variance in expression for each gene, followed by decomposition of the variance into biological and technical components. The technical component would be estimated by fitting a mean-variance trend to the spike-in transcripts using the trendVar function. The biological component of the variance can then be calculated by subtracting the technical component from the total variance of each gene with the decomposeVar function.
+
+We'll also account for possible cell cycle effect, using the G1 and G2M assignment scores as a continuous blocking factor to estimate the variance.
+
+Some notes:
+
+* block directly on the phase scores in downstream analyses.  This is more graduated than using a strict assignment of each cell to a specific phase, as the magnitude of the score considers the uncertainty of the assignment. 
+
+* won't use spikes to calculate the technical component, due to small number of spike-in transcripts, the uneven distribution of their abundances and (for low numbers of cells) the imprecision of their variance estimates. Instead, do it like bulk RNAseq considering majority of genes don't change, assuming the technical component dominates the variance.
+
+```{r}
+design <- model.matrix(~ bp + G1 + G2M, colData(sce))    # 
+fit <- trendVar(sce, method="loess", use.spikes=FALSE, design=design)
+decVar <- decomposeVar(sce, fit)
+```
+
+The trend fitted to the endogenous variances should be consistent with the spike-in variances.
+
+```{r}
+plot(decVar$mean, decVar$total, pch=16, cex=0.6, col="#00000050",
+     xlab="Mean log-expression", ylab="Variance of log-expression")
+o <- order(decVar$mean)
+lines(decVar$mean[o], decVar$tech[o], col="dodgerblue", lwd=2)
+spike.fit <- trendVar(sce, use.spikes=TRUE) # To compute spike-in variances.
+points(spike.fit$mean, spike.fit$var, col="red", pch=16)
+```
+
+HVGs are defined as genes with biological components that are significantly greater than zero at a false discovery rate (FDR) of 5%. We only consider a gene to be a HVG if it has a biological component greater or equal than the top 1% (Note: assuming the log-expression values are Normally distributed with a variance of 0.5, the 0.5 means an average difference of 2-fold between 2 cells).
+
+```{r}
+hvg <- decVar[which(decVar$FDR <= 0.05 & decVar$bio >= quantile(decVar$bio, probs=.99)), ]
+hvg <- hvg[order(hvg$bio, decreasing=TRUE), ]
+nrow(hvg)
+plotExpression(sce, rownames(hvg)[1:10], colour_by="sort")
+```
+
+Distinguish between HVGs caused by random noise and those involved in driving systematic differences between subpopulations. Gene-gene correlation can be summarized in a graph with genes as nodes and edges representing the R^2.
+
+```{r, message=FALSE}
+set.seed(100)
+hvg.cor <- correlatePairs(sce, subset.row=rownames(hvg))
+sig.cor <- hvg.cor$FDR <= .05
+```
+
+Sets of correlated genes can be viewed in a graph format, with genes being nodes and significant correlations between genes seen as edges. The graph can be analyzed to find highly connected sets of genes that give structure to the data:
+
+```{r, message=FALSE}
+library(RBGL)
+g <- ftM2graphNEL(cbind(hvg.cor$gene1, hvg.cor$gene2)[sig.cor,], W=NULL, V=NULL, edgemode="undirected")
+cl <- highlyConnSG(g)$clusters
+cl <- cl[order(lengths(cl), decreasing=TRUE)]
+```
+
+Significant correlations provide evidence for substructure in the dataset, i.e., subpopulations of cells with systematic differences in their expression profiles.
+
+## Using correlated HVGs for further data exploration
+
+If any subpopulations were present, they would manifest as rectangular "blocks" in the heatmap, corresponding to sets of genes that are systematically up- or down-regulated in specific groups of cells.
+
+First, lets see the effects of the normalization on the set of top markers:
+
+```{r, message=FALSE}
+library(pheatmap)
+top.hvg <- unique(c(hvg.cor$gene1[sig.cor], hvg.cor$gene2[sig.cor]))
+
+# pca based on the top HVG, coloured by batch
+plotPCA(sce, pca_data_input="exprs"     , colour_by="bp", shape_by="sort", feature_set=top.hvg)
+plotPCA(sce, pca_data_input="norm_exprs", colour_by="bp", shape_by="sort", feature_set=top.hvg)
+```
+
+And produce the heatmap:
+
+```{r}
+ann <- data.frame(sort=sce$sort,
+                  bp=sce$bp,
+                  batch=sce$batch,
+                  row.names=colnames(sce))
+norm.exprs <- norm_exprs(sce)[top.hvg, , drop=FALSE]
+heat.vals  <- norm.exprs - rowMeans(norm.exprs)  # center expression around the mean
+h <- pheatmap(heat.vals, color=pal_rb, breaks=-10:10,
+              annotation_col=ann, show_rownames=FALSE, show_colnames=FALSE, clustering_method="average")#ward.D2")
+```
+
+Annotate and save the results from the heatmap:
+
+```{r}
+x <- as.data.frame(norm.exprs[h$tree_row$order, h$tree_col$order])
+x$gene_name <- gtf$gene_name[match(rownames(x), gtf$gene_id)]
+write.csv(x, file="./results/sc_analysis.heatmap.csv")
+```
+
+## Identification of subpopulations
+
+Using t-SNE to reduce the dimensionality of the data, we try to capture the heterogeneity of the cell population. Not to identify the subpopulations per se, but as a visualization tool that will help us in validating the results.
+
+First of all, try different perplexity values to see which one identifies better the underlying structure of the data:
+
+```{r}
+do.call(multiplot, c(mclapply(c(5, 10, 20, 50), function(p) {
+    plotTSNE(sce, exprs_values="norm_exprs", colour_by="sort", perplexity=p , rand_seed=100, feature_set=top.hvg) +
+    ggtitle(paste("perplexity", p))
+  }, mc.cores=CORES), cols=2)
+) 
+```
+
+Picking the perplexity parameters that best describes our data, colour the top t-SNE plot based on the expression of the top 10 HVG:
+
+```{r}
+x <- sapply(0:2, function(i){
+  do.call(multiplot, c(mclapply(rownames(hvg)[(4*i+1):(4*i+4)], function(gene) {
+      plotTSNE(sce, exprs_values="norm_exprs", colour_by=gene, perplexity=PERP , rand_seed=100, feature_set=top.hvg)
+    }, mc.cores=CORES), cols=2)
+  )
+})
+```
+
+This function will help to display the results of the clustering:
+
+```{r}
+visualizeClusters <- function(x, sce, ann, ann.cluster="cluster", p=5,
+                              d.method="euclidean", h.method="complete") {
+  pheatmap(x, color=pal_rb, breaks=-10:10,
+           annotation_col=ann, show_rownames=FALSE, show_colnames=FALSE, clustering_method=h.method,
+           clustering_distance_rows=d.method, clustering_distance_cols=d.method)
+  plotTSNE(sce, exprs_values="norm_exprs", colour_by=ann.cluster, shape_by="sort",
+           perplexity=p, rand_seed=100, feature_set=top.hvg) +
+    ggtitle(paste("perplexity", p))
+}
+```
+
+### Method 1: using hierarchical clustering and cutting the tree
+
+```{r}
+library(dynamicTreeCut)
+
+# identify clusters of observations with the same overall profiles regardless of their magnitudes (pearson's distance)
+d <- as.dist(1 - cor(norm_exprs(sce)[top.hvg, ], method="pearson"))
+h <- hclust(d, method="average")#"ward.D2")
+sce$clusterDTree <- factor(unname(cutreeDynamic(h, distM=as.matrix(d), minClusterSize=5, deepSplit=1)))
+ann$clusterDTree <- sce$clusterDTree
+visualizeClusters(heat.vals, sce, ann, "clusterDTree", p=5, d.method="correlation", h.method="average")#"ward.D2")
+```
+
+### Method 2: a fancier ensemble method from the clusterExperiment package
+
+See: http://bioconductor.org/packages/release/bioc/vignettes/clusterExperiment/inst/doc/clusterExperimentTutorial.html#the-rsec-clustering-workflow
+
+The method is cpu intensive and time consuming. The code to use the method is included in this report, but disabled by default. 
+
+The success so far has been mixed. The amount of parameters one can touch here, and no directions on which are the right settings or how to get them, makes the method of limited use. Nevertheless, it's nice for exploration and spending some time one could get satisfactory results.
+
+```{r, eval=FALSE} 
+library(clusterExperiment)
+
+ce <- RSEC(norm_exprs(sce), isCount=FALSE, ncores=CORES, random.seed=100)
+
+opar <- par(mar=c(5.1, 10, 4.1, 2.1)) # original par()$mar values, changing only the left one
+plotClusters(ce, main="Clusters from clusterMany", whichClusters="workflow",
+             sampleData=c("Biological_Condition","Published2"))
+par(opar)
+
+sce$clusterExperiment <- factor(primaryCluster(ce))
+ann$clusterExperiment <- sce$clusterExperiment
+visualizeClusters(heat.vals, sce, ann, "clusterExperiment", p=5, d.method="correlation", h.method="average")#ward.D2")
+```
+
+## Detecting marker genes between subpopulations
+
+### METHOD 1: edgeR
+
+This is the *good enought* strategy, the known one. Maybe not the best suited for a sparse matrix of counts, but seems to work well enough to rank markers between empirically identified clusters from the data. A note of caution about the p-values, which may be lower that they should be since clusters have been empirically identified (meaning we're artificially reducing the variability of data by biasing the groups towards how similar they are).
+
+Prepare the edgeR model:
+
+```{r}
+library(edgeR)
+
+
+de.design <- model.matrix(~ 0 + sce$clusterDTree + sce$bp, colData(sce)) # add cluster to the model
+y <- convertTo(sce, type="edgeR")
+y <- estimateDisp(y, de.design)
+y.fit <- glmFit(y, de.design)
+```
+
+Do DE analysis between populations of interest:
+
+```{r}
+cont <- numeric(ncol(de.design))
+names(cont) <- colnames(de.design)
+clusters <- names(cont)[grepl("clusterDTree", names(cont))]
+
+markers <- mclapply(clusters, function(cluster1) {
+  # get DE genes at FDR 1% in all pairwise comparisons
+  markers <- mclapply(clusters, function(cluster2) {
+    if(cluster1 == cluster2) return(NULL)
+    cont[cluster1] <-  1
+    cont[cluster2] <- -1
+    res <- glmLRT(y.fit, contrast=cont)
+    res$table$cont <- paste(cluster1, "vs", cluster2)
+    res$table$gene <- rownames(res$table)  # will be altered when we "rbind" the many contrasts
+    res$table$FDR  <- p.adjust(res$table$PValue, method="fdr")
+    res$table[res$table$FDR < .01, ]
+  }, mc.cores=floor(sqrt(CORES)))
+
+  markers[!sapply(markers, is.null)]  # remove the self-comparison case
+}, mc.cores=floor(sqrt(CORES)))
+names(markers) <- clusters
+```
+
+Plot the results as a heatmap. To simplify, we'll take the top 10 changing genes of all the possible pairwise comparisons.
+
+```{r}
+Map(function(markers, cluster) {
+  # get the top 10 per contrast
+  i <- unique(unlist(lapply(markers, function(x) x$gene[rank(x$FDR) <= 10])))
+
+  # heatmap them
+  x <- norm_exprs(sce)[i, ]
+  x <- x - rowMeans(x)
+  pheatmap(x, color=pal_rb, breaks=-10:10,
+           annotation_col=ann[, c("clusterDTree", "sort")], main=paste("top markers for", cluster),
+           show_rownames=TRUE, labels_row=gtf$gene_name[match(rownames(x), gtf$gene_id)],
+           show_colnames=FALSE, clustering_method="average",
+           clustering_distance_rows="correlation", clustering_distance_cols="correlation")
+}, markers, names(markers))
+```
+
+### Method 2: scde
+
+The `scde` package implements a custom method for single cell data. Here we only include the code but not run it.
+
+Check http://hms-dbmi.github.io/scde/diffexp.html and http://hms-dbmi.github.io/scde/pagoda.html
+
+```{r, eval=FALSE}
+library(scde)
+
+# fitting error models
+cd <- clean.counts(counts(sce))
+sg <- sce$sort
+names(sg) <- colnames(sce)
+o.ifm <- scde.error.models(counts=cd, groups=sg, n.cores=CORES, threshold.segmentation=TRUE,
+                           save.crossfit.plots=FALSE, save.model.plots=FALSE)
+table(o.ifm$corr.a > 0)
+
+# estimate gene expression prior
+o.prior <- scde.expression.prior(models=o.ifm, counts=counts(sce), length.out=400, show.plot=FALSE)
+
+# Testing for differential expression
+groups <- factor(gsub("^.+_.+_.+_.+_.+_(.+)_.+$", "\\1", rownames(o.ifm)))
+batch  <- factor(gsub("^.+_(.+_.+)_.+_.+_.+_.+$", "\\1", rownames(o.ifm)))
+names(groups) <- names(batch) <- row.names(o.ifm)
+ediff <- scde.expression.difference(o.ifm, cd, o.prior, groups=groups, batch=batch, n.cores=CORES)
+
+# write table with all results, sorted by significance
+write.csv(ediff[rev(order(abs(ediff$Z))), ], file="./results/sc_analysis.de.csv")
+```
+
+## Pseudotime analysis with monocle
+
+Cells may not always fall into distinct subpopulations. Rather, they may form a continuous gradient along a pseudo-time trajectory.
+
+This is especially interesting to identify a path during a differentiation process, from stem cells to fully defferentiated cells for instance.
+
+Check the comments in the [Monocle vignette](http://cole-trapnell-lab.github.io/monocle-release/docs/#constructing-single-cell-trajectories).
+
+```{r}
+library(monocle)
+
+pd <- new('AnnotatedDataFrame', data=ann)
+fd <- new('AnnotatedDataFrame', data=data.frame(gene_id=rownames(norm_exprs(sce)),
+                                                gene_short_name=gtf$gene_name[match(rownames(norm_exprs(sce)), gtf$gene_id)],
+                                                row.names=rownames(norm_exprs(sce))))
+```
+
+First create a CellDataSet from the relative expression levels:
+
+```{r}
+sce.monocle <- newCellDataSet(norm_exprs(sce),
+                              phenoData=pd,
+                              featureData=fd)
+rpc_matrix  <- relative2abs(sce.monocle, method = "num_genes")  # estimate RNA counts
+sce.monocle <- newCellDataSet(as(as.matrix(rpc_matrix), "sparseMatrix"),  # make a new dataset using the RNA counts
+                              phenoData=pd,
+                              featureData=fd,
+                              lowerDetectionLimit=.5,
+                              expressionFamily=negbinomial.size())
+sce.monocle <- estimateSizeFactors(sce.monocle)
+sce.monocle <- estimateDispersions(sce.monocle)
+```
+
+Calculate trajectory:
+
+```{r}
+set.seed(100)
+sce.monocle <- setOrderingFilter(sce.monocle, top.hvg)
+sce.monocle <- reduceDimension(sce.monocle, max_components=2, method="DDRTree")
+sce.monocle <- orderCells(sce.monocle)
+grid.newpage()
+plot_cell_trajectory(sce.monocle, color_by="clusterDTree") 
+```
+
+Clustering genes by pseudotemporal expression pattern:
+
+```{r}
+diff_test_res <- differentialGeneTest(sce.monocle[top.hvg,],
+                                      fullModelFormulaStr="~sm.ns(Pseudotime)")
+sig_gene_names <- row.names(subset(diff_test_res, qval < 0.1))
+grid.newpage()
+plot_pseudotime_heatmap(sce.monocle[sig_gene_names,], cores=CORES, show_rownames=TRUE)
+```
+
+Snalyzing branches in sc trajectories:
+
+```{r}
+BEAM_res <- BEAM(sce.monocle, branch_point=1, cores=CORES)
+BEAM_res <- BEAM_res[order(BEAM_res$qval), ]
+BEAM_res <- BEAM_res[,c("gene_short_name", "pval", "qval")]
+grid.newpage()
+plot_genes_branched_heatmap(sce.monocle[row.names(subset(BEAM_res, qval < 1e-4)) ,],
+                            branch_point=1,
+                            num_clusters=length(levels(sce$clusterDTree)),
+                            cores=CORES,
+                            use_gene_short_name=TRUE,
+                            show_rownames=TRUE)
+```
+
+## Displaying markers for the expected populations
+
+| Gene id            | Gene name | marker for |
+| ------------------ | --------- | ---------- |
+| ENSMUSG00000020140 | Lgr5      | Epithelial |
+| ENSMUSG00000023886 | Smoc2     | Epithelial |
+| ENSMUSG00000026728 | Vim       | Mesenchyme |
+| ENSMUSG00000020900 | Myh10     | Mesenchyme |
+| ENSMUSG00000019880 | Rspo3     | Mesenchyme |
+| ENSMUSG00000052187 | Hbb-y     | Blood      |
+| ENSMUSG00000052305 | Hbb-bs    | Blood      |
+| ENSMUSG00000073940 | Hbb-bt    | Blood      |
+| ENSMUSG00000025270 | Alas2     | Blood      |
+| ENSMUSG00000032786 | Alas1     | Blood      |
+| ENSMUSG00000000142 | Axin2     | WNT        |
+
+```{r}
+genes <- list(c("ENSMUSG00000020140", "Lgr5" , "Epithelial"),
+              c("ENSMUSG00000023886", "Smoc2", "Epithelial"),
+              c("ENSMUSG00000026728", "Vim"  , "Mesenchyme"),
+              c("ENSMUSG00000020900", "Myh10", "Mesenchyme"),
+              c("ENSMUSG00000019880", "Rspo3", "Mesenchyme"),
+              c("ENSMUSG00000052187", "Hbb-y", "Blood"),
+              c("ENSMUSG00000052305", "Hbb-bs", "Blood"),
+              c("ENSMUSG00000073940", "Hbb-bt", "Blood"),
+              c("ENSMUSG00000025270", "Alas2", "Blood"),
+              c("ENSMUSG00000032786", "Alas1", "Blood"),
+              c("ENSMUSG00000000142", "Axin2", "WNT"))
+
+x <- sapply(0:floor(length(genes) / 4), function(i){
+  do.call(multiplot, c(mclapply(genes[(4*i+1):min((4*i+4), length(genes))], function(gene) {
+      plotTSNE(sce, exprs_values="norm_exprs", colour_by=gene[1], perplexity=PERP, rand_seed=100, feature_set=top.hvg) +
+      ggtitle(paste(gene[2], gene[3], sep=" - "))
+    }, mc.cores=CORES), cols=2)
+  ) 
+})
+```
+
+Heatmap using the above markers
+
+```{r}
+genes   <- unique(genes)
+markers <- sapply(genes, function(x) x[1])
+name    <- sapply(genes, function(x) x[2])
+norm.exprs <- norm_exprs(sce)[markers, ]
+rownames(norm.exprs) <- gtf$gene_name[match(rownames(norm.exprs), gtf$gene_id)]
+
+# heatmap
+ann <- data.frame(sort=sce$sort,
+                  batch=sce$bp,
+                  cluster=sce$clusterDTree,
+                  row.names=colnames(sce))
+h <- pheatmap(norm.exprs, color=pal_y,
+              annotation_col=ann, show_rownames=TRUE, show_colnames=FALSE)
+```
+
+## Save the cooked data for downstream analysis
+
+Save the whole expression (normalized) and sample annotation tables:
+
+```{r}
+x <- as.data.frame(norm_exprs(sce))
+x$gene_name <- gtf$gene_name[match(rownames(x), gtf$gene_id)]
+write.csv(x, file="./results/sc_analysis.csv")
+write.csv(colData(sce), file="./results/sc_analysis.pData.csv")
+```
+
