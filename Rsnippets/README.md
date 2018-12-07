@@ -96,6 +96,7 @@
    * [Get information of genomic features](#get-information-of-genomic-features)
 * [Statistical analysis](#statistical-analysis)
    * [Principal Component Analysis (PCA)](#principal-component-analysis-pca)
+   * [High Level PCA](#hihg-level-pca)
    * [Multidimensional Scaling (MDS)](#multidimensional-scaling-mds)
    * [Affinity Propagation Clustering](#affinity-propagation-clustering)
    * [Other methods for clustering](#other-methods-for-clustering)
@@ -2441,6 +2442,38 @@ rownames(df) <- c("promoters", "transcripts", "exons", "cds", "introns", "threeU
 ## Statistical analysis
 
 ### Principal Component Analysis (PCA)
+
+```R
+library(scatterplot3d)
+
+# The teapot data is from https://www.khanacademy.org/computer-programming/3d-teapot/971436783
+teapot <- read.csv("data/teapot.csv", header = FALSE)
+dat <- matrix(unlist(teapot), ncol = 3, byrow = TRUE)
+head(dat)
+##      [,1] [,2] [,3]
+## [1,] 40.6 28.3 -1.1
+## [2,] 40.1 30.4 -1.1
+## [3,] 40.7 31.1 -1.1
+## [4,] 42.0 30.4 -1.1
+## [5,] 43.5 28.3 -1.1
+## [6,] 37.5 28.3 14.5
+ 
+# teapot in 3D
+scatterplot3d(dat[, 1], dat[, 2], dat[, 3], highlight.3d=TRUE, angle=75,
+              pch=19, lwd=15, xlab="", ylab="", zlab="", main="teapot in 3D")
+
+# PCA
+eigenvec <- eigen(cov(dat))$vectors
+PCA_2 <- dat %*% eigenvec[ , 1:2]  # take only the two eigenvectors with biggest eigenvalues
+plot(PCA_2, ylim=c(50, -55), pch=19, lwd=35, col="blue", xlab="", ylab="", main="teapot in 2D")
+
+# Variance explained by each component
+eigenval <- eigen(cov(dat))$values
+round(cumsum(eigenval)/sum(eigenval) * 100, 2) # cumulative percentage of retrieved information
+## [1]  61.18  83.49 100.00
+```
+
+### High Level PCA
 
 ```R
 # Verify variance is uniform
