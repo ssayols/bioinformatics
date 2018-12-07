@@ -97,6 +97,7 @@
 * [Statistical analysis](#statistical-analysis)
    * [Principal Component Analysis (PCA)](#principal-component-analysis-pca)
    * [High Level PCA](#hihg-level-pca)
+   * [Project a new vector onto PCA space](#project-a-new-vector-onto-pca-space)
    * [Multidimensional Scaling (MDS)](#multidimensional-scaling-mds)
    * [Affinity Propagation Clustering](#affinity-propagation-clustering)
    * [Other methods for clustering](#other-methods-for-clustering)
@@ -2463,12 +2464,12 @@ scatterplot3d(dat[, 1], dat[, 2], dat[, 3], highlight.3d=TRUE, angle=75,
               pch=19, lwd=15, xlab="", ylab="", zlab="", main="teapot in 3D")
 
 # PCA
-eigenvec <- eigen(cov(dat))$vectors
+eigenvec <- eigen(cov(dat))$vectors  # equivalent to prcomp(dat)$rotation
 PCA_2 <- dat %*% eigenvec[ , 1:2]  # take only the two eigenvectors with biggest eigenvalues
 plot(PCA_2, ylim=c(50, -55), pch=19, lwd=35, col="blue", xlab="", ylab="", main="teapot in 2D")
 
 # Variance explained by each component
-eigenval <- eigen(cov(dat))$values
+eigenval <- eigen(cov(dat))$values   # equivalent to prcomp(dat)$sdev
 round(cumsum(eigenval)/sum(eigenval) * 100, 2) # cumulative percentage of retrieved information
 ## [1]  61.18  83.49 100.00
 ```
@@ -2496,6 +2497,25 @@ pc <- prcomp(x)
 
 # Plot first 2 PC
 plot(data.frame(pc$x[, 1:2]), pch=16, col=rgb(0, 0, 0, 0.5))
+```
+
+### Project a new vector onto PCA space
+
+As described [here](https://stats.stackexchange.com/questions/2592/how-to-project-a-new-vector-onto-pca-space), Either use
+
+```R
+predict.prcomp
+getS3method("predict", "prcomp")
+```
+
+Which is basically:
+
+```R
+# perform principal components analysis
+pca <- prcomp(data) 
+
+# project new data onto the PCA space (newdata is a matrix with 1 row and 'n' cols
+scale(newdata, pca$center, pca$scale) %*% pca$rotation
 ```
 
 ### Multidimensional Scaling (MDS)
