@@ -111,6 +111,7 @@
    * [Calculate the center of a 2d-distribution](#calculate-the-center-of-a-2d-distribution)
    * [Test the significance of the overlap between 2 lists](#test-the-significance-of-the-overlap-between-2-lists)
    * [Network analysis](#network-analysis)
+   * [Split data for CV](#split-data-for-cv)
 * [Other stuff that doesn't fit into any other category](#other-stuff-that-doesnt-fit-into-any-other-category)
    * [Supercomputing](#supercomputing)
    * [Parse arguments](#parse-arguments)
@@ -2777,6 +2778,27 @@ plot(clp, net, vertex.frame.color="white", col=V(net)$color, mark.col="#00000010
 
 # calculate GO on the communities detected
 # ...
+```
+
+### Split data for CV
+
+Taken from [here](https://stats.stackexchange.com/questions/61090/how-to-split-a-data-set-to-do-10-fold-cross-validation).
+
+```R
+#Randomly shuffle the data
+yourData<-yourData[sample(nrow(yourData)),]
+
+#Create 10 equally size folds
+folds <- cut(seq(1,nrow(yourData)),breaks=10,labels=FALSE)
+
+#Perform 10 fold cross validation
+for(i in 1:10){
+    #Segement your data by fold using the which() function 
+    testIndexes <- which(folds==i,arr.ind=TRUE)
+    testData <- yourData[testIndexes, ]
+    trainData <- yourData[-testIndexes, ]
+    #Use the test and train data partitions however you desire...
+}
 ```
 
 ## Other stuff that doesn't fit into any other category
