@@ -30,7 +30,17 @@
    * [Plots](#plots)
       * [Plot signal around features](#plot-signal-around-features)
       * [Distribution of peaks along the genome](#distribution-of-peaks-along-the-genome)
-* [Plots](#plots-1)
+* [RNA-seq workflows](#rna-seq-workflows)
+   * [QC](#qc)
+      * [dupRadar](#dupradar)
+      * [Saturation curves](#saturation-curves)
+      * [Dispersion vs. abundance](#dispersion-vs.-abundance)
+      * [DGE chromosome overrepresentation](#dge-chromosome-overrepresentation)
+   * [Calling DE genes with edgeR](#calling-de-genes-with-edger)
+   * [Calling DE genes with DESeq2](#calling-de-genes-with-deseq2)
+   * [Calling DE genes with limma voom](#calling-de-genes-with-limma-voom)
+   * [Plots](#plots-1)
+ * [Plots](#plots-2)
    * [Color palettes](#color-palettes)
       * [A colorblind-friendly palette](#a-colorblind-friendly-palette)
       * [Color palettes with RColorBrewer](#color-palettes-with-rcolorbrewer)
@@ -696,6 +706,57 @@ ggplot(df.peaks, aes(pos)) +
    theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
    theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
 ```
+
+## RNA-seq workflows
+### QC
+To be done.
+#### dupRadar
+#### Saturation curves
+#### Dispersion vs. abundance
+#### DGE chromosome overrepresentation
+
+### Calling DE genes with edgeR
+This is just part of a scRNA-seq experiment. ToDo: create the edgeR dataset.
+
+```R
+f <- function(group, conts) {
+  sce$group <- group
+
+  # prepare edgeR model matrix and contrasts
+  de.design <- model.matrix(~ 0 + sce$group + sce$bp, colData(sce))
+  colnames(de.design) <- gsub("^sce\\$(group|bp)", "", colnames(de.design))
+  de.conts  <- makeContrasts(contrasts=conts, levels=de.design)
+
+  # do the DGE analysis
+  y <- convertTo(sce, type="edgeR")
+  y <- estimateDisp(y, de.design)
+
+  # QL glm fit
+  y.qlfit <- glmQLFit(y, de.design)
+  qlf     <- glmQLFTest(y.qlfit, contrast=de.conts)
+  res.qlf <- topTags(qlf, n=nrow(qlf), p.value=0.01)
+  res.qlf$table
+}
+
+res.qlf <- mcMap(
+  f,
+  group=list(lgr5.1_vs_lgr5.0        =ifelse(sce$Lgr5, "Lgr5.1", "Lgr5.0"),
+             lgr5.1_vs_lgr5.0_krt15.0=ifelse(sce$Lgr5, "Lgr5.1",
+                                      ifelse(sce$Krt15, "Lgr5.0_Krt15.1", "Lgr5.0_Krt15.0"))),
+  conts=list(lgr5.1_vs_lgr5.0        ="Lgr5.1-Lgr5.0",
+             lgr5.1_vs_lgr5.0_krt15.0="Lgr5.1-Lgr5.0_Krt15.0"),
+  mc.cores=CORES
+)
+```
+
+### Calling DE genes with DESeq2
+To be done.
+
+### Calling DE genes with limma voom
+To be done.
+
+### Plots
+To be done.
 
 ## Plots
 
