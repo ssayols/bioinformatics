@@ -44,6 +44,7 @@
    * [Color palettes](#color-palettes)
       * [A colorblind-friendly palette](#a-colorblind-friendly-palette)
       * [Color palettes with RColorBrewer](#color-palettes-with-rcolorbrewer)
+      * [Color palettes with colorspace](#color-palettes-with-colorspace)
       * [A very large (255) high contrast color palette](#a-very-large-255-high-contrast-color-palette)
    * [Spaghetti plot: graphs showing regression uncertainty](#spaghetti-plot-graphs-showing-regression-uncertainty)
    * [Smooth spline ggplot2](#smooth-spline-ggplot2)
@@ -798,6 +799,35 @@ heatmap.2(mat, trace="none", col=rev(hmcol), margin=c(13, 13))
 # use it to display categorical data
 plot(x=x$x[, 1], y=x$x[, 2], pch=16, cex=.5,
      col=brewer.pal(length(levels(condition)), "Set1")[condition])
+```
+
+#### Color palettes with colorspace
+
+```R
+require("colorspace")
+
+# show all available palettes
+hcl_palettes(plot = TRUE)
+
+# Usage with base graphics
+q4 <- qualitative_hcl(4, "Dark 3")
+plot(log(EuStockMarkets), plot.type = "single", col = q4, lwd = 2)
+legend("topleft", colnames(EuStockMarkets), col = q4, lwd = 3, bty = "n")
+
+# Usage with ggplot2
+library("ggplot2")
+ggplot(iris, aes(x = Sepal.Length, fill = Species)) + geom_density(alpha = 0.6) +
+  scale_fill_discrete_qualitative(palette = "Dark 3")
+  
+# Palette visualization and assessment
+demoplot(q4, "bar")
+hclplot(q4)
+specplot(q4, type = "o")
+
+s9 <- sequential_hcl(9, "Purples 3")
+demoplot(s9, "heatmap")
+hclplot(s9)
+specplot(s9, type = "o")
 ```
 
 #### A very large (255) high contrast color palette
