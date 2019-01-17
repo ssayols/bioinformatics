@@ -40,6 +40,7 @@
    * [Calling DE genes with DESeq2](#calling-de-genes-with-deseq2)
    * [Calling DE genes with limma voom](#calling-de-genes-with-limma-voom)
    * [Plots](#plots-1)
+     * [Volcano](#volcano)
  * [Plots](#plots-2)
    * [Color palettes](#color-palettes)
       * [A colorblind-friendly palette](#a-colorblind-friendly-palette)
@@ -754,10 +755,45 @@ res.qlf <- mcMap(
 To be done.
 
 ### Calling DE genes with limma voom
-To be done.
+```R
+library(limma)
+
+dge <- DGEList(counts(sce))  # sce is a single cell experiment
+dge <- calcNormFactors(dge)
+
+design <- model.matrix(~ (cell_type == "Unknown"), colData(sce))
+
+v <- voom(dge, design, plot=TRUE)
+
+fit <- lmFit(v, design)
+fit <- eBayes(fit)
+res <- decideTests(fit)
+
+df_limma <- data_frame(log2foldchange = fit$coefficients[,2], 
+                       pval = fit$p.value[,2],
+                       qval = p.adjust(fit$p.value[,2], method = 'BH'),
+                       ensembl_id = rownames(sce),
+                       gene_symbol = rowData(sce)$symbol)
+```
 
 ### Plots
-To be done.
+#### Volcano
+```R
+df_limma$is_significant <- df_limma$qval < 0.01
+
+ggplot(df_limma, aes(x = log2foldchange, y = -log10(qval), color = is_significant)) +
+  geom_point(alpha = 0.7) +
+  scale_color_manual(values = c("FALSE" = "grey80", "TRUE" = "darkred"),
+                     name = "Significantly differentially expressed") +
+  geom_text_repel(data = subset(df_limma, qval < 0.00001), aes(label = gene_symbol), color = 'black', size = 2) +
+  labs(x = expression(log[2]~"(fold change)"),
+       y = expression(-log[10]~"(q-value)"),
+       subtitle = "Differential expression of Unknown vs. Known cell types") +
+  theme(legend.position = "bottom",
+        legend.box.background = element_rect(linetype = 1, size = 1)) +
+  annotate("label", x = 2, y = 0, label = "Upregulated in Unknown") +
+  annotate("label", x = -1.2, y = 0, label = "Upregulated in epithelial (sorted) cells")
+```
 
 ## Plots
 
