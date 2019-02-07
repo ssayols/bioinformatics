@@ -7,6 +7,7 @@
 * [Downsample](#downsample)
    * [Fastq](#fastq)
    * [BAM](#bam)
+   * [BAM (other)](#bam-other)
 * [Extend reads for ChIP/MBD](#extend-reads-for-chipmbd)
 * [Generate a STAR index](#generate-a-star-index)
 * [Merge BAM files](#merge-bam-files)
@@ -254,6 +255,42 @@ for l in $(cat downsample20M.csv); do
     echo "Sample $f being downsampled ${xx}%"
     echo "samtools view -s ${SEED}.${x} -bh ${BAMS}/${PREF}${f}${SUFF} > ${PREF}${f}.20M${SUFF}" | bsub -cwd $(pwd) -J ${f} -n1 -W2:00
   fi
+done
+```
+
+## BAM (other)
+
+Downsample to a predefined number of reads.
+
+**Requirements**
+
+* samtools (0.1.18 has a known bug when downsampling with >50% likelihood)
+
+**Source**
+
+```bash
+#!/bin/bash
+function downsample {
+  bam=$1
+  bamcoord=${bam%.sortedByName.out.markDups.bam}.sortedByCoord.out.markDups.bam
+  counts=$2
+  seed=42
+
+  # Calculate the sampling factor based on the intended number of reads:
+  prob=$(samtools idxstats $bamcoord | cut -f3 | awk -v SEED=$seed -v COUNT=$counts 'BEGIN {total=0} {total += $1} END {print SEED+COUNT/(total/2)}')
+  if [[ $FACTOR > 1 ]]; then
+    prob=1
+  fi
+
+  # and call samtools to downsample based on the factor calculated
+  echo "downsampling $(basename $bam) to $counts with probability $prob"
+  samtools view -bs ${prob} $bam > ${bam%.bam}.${counts}.bam
+}
+
+for f in ../rawdata/*.sortedByName.out.markDups.bam; do
+  for x in 500000 1000000 5000000; do
+    downsample $f $x
+  done
 done
 ```
 
