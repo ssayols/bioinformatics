@@ -2,8 +2,6 @@
 
 * [Convert BAM to BigWig](#convert-bam-to-bigwig)
 * [Deduplicate UMIs](#deduplicate-umis)
-* [Differential Exon Usage](#differential-exon-usage)
-   * [DEXSeq](#dexseq)
 * [Downsample](#downsample)
    * [Fastq](#fastq)
    * [BAM](#bam)
@@ -16,12 +14,14 @@
 * [Motif discovery](#motif-discovery)
    * [MEME](#meme)
    * [rGadem](#rgadem)
-* [Quick and dirty, call peaks with MACS2 and SICER](#quick-and-dirty-call-peaks-with-macs2-and-sicer)
-   * [MACS2](#macs2)
-   * [SICER](#sicer)
 * [Retrieve chromosome sizes](#retrieve-chromosome-sizes)
 * [Submit jobs to random machines in the cluster](#submit-jobs-to-random-machines-in-the-cluster)
 * [Count reads on repetitive regions](#count-reads-on-repetitive-regions)
+* [Quick and dirty, call peaks with MACS2 and SICER](#quick-and-dirty-call-peaks-with-macs2-and-sicer)
+   * [MACS2](#macs2)
+   * [SICER](#sicer)
+* [Differential Exon Usage](#differential-exon-usage)
+   * [DEXSeq](#dexseq)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -108,101 +108,6 @@ for f in *R?.fastq.gz; do
     name=${f%.fastq.gz}
     echo "perl dedup_merge.pl $f ${name}.umi.fastq.gz | sort -k1,1 -k2,2 -k3,3nr -k4,4nr | perl dedup_split.pl | gzip > ${name}.dedup.fastq.gz" | bsub -J $name -W5:00 -o ${name}.out -e ${name}.err -m ${hosts[$((RANDOM % 2))]}
 done 
-```
-
-## Differential exon usage
-
-### DEXSeq
-
-Do differential exon usage with ''DEXSeq'' and ''Bioconductor''
-
-```R
-library(GenomicFeatures)
-library(GenomicAlignments)
-library(Rsamtools)
-library(DEXSeq)
-library(BiocParallel)
-
-PROJECT <- "/project/
-GTF <- "/annotation/Homo_sapiens.GRCh38.84.gtf"
-FC  <- log2(1.5)    # expect 50% more expression
-FDR <- .01
-
-##
-## count reads on exons
-##
-exonicParts <- disjointExons(makeTxDbFromGFF(GTF))
-bams <- BamFileList(list.files(paste0(PROJECT, "/mapped"), pattern="_read\\.bam$", full=TRUE),
-                    index=character(),              # the BAM index file path
-                    asMates=TRUE,                   # records should be paired as mates
-                    obeyQname=TRUE)                 # BAM file is sorted by ‘qname’
-
-counts <- summarizeOverlaps(exonicParts,
-                            bams,
-                            mode="Union",           # default htseq union mode
-                            singleEnd=FALSE,        # data is paired end
-                            inter.feature=FALSE,    # don't discard reads spannings multiple exons
-                            fragments=TRUE,         # count also singletons
-                            ignore.strand=TRUE,     # it's strand specific, but still ignore the strand
-                            BPPARAM=MulticoreParam(workers=6))
-
-##
-## DEXSeq
-##
-colData(counts)$condition <- c(rep("Id2", 3), rep("GFP", 3))
-dds <- DEXSeqDataSetFromSE(counts, design= ~ sample + exon + condition:exon )
-
-# normalize, estimate dispersion, test for differential expression and estimate fold changes
-dds <- estimateSizeFactors(dds)
-dds <- estimateDispersions(dds, BPPARAM=MulticoreParam(workers=16))
-dds <- testForDEU(dds, BPPARAM=MulticoreParam(workers=16))
-dds <- estimateExonFoldChanges(dds, fitExpToVar="condition", BPPARAM=MulticoreParam(workers=16))
-
-# extract significant genes
-res <- DEXSeqResults(dds)
-
-res$log2fold_Id2_GFP <- ifelse(is.na(res$log2fold_Id2_GFP), 0, res$log2fold_Id2_GFP)
-res$padj <- ifelse(is.na(res$padj), 1, res$padj)
-geneids <- unique(res$groupID[abs(res$log2fold_Id2_GFP) > FC & res$padj < FDR])
-
-res2 <- res[res$groupID %in% geneids, ]
-x <- do.call(rbind, by(res2, res2$groupID, function(x) data.frame(padj=min(x$padj), log2fold_Id2_GFP=max(x$log2fold_Id2_GFP))))
-
-DEXSeqHTML(res2, path=paste0(PROJECT, "/results/DEXSeq"), FDR=FDR, BPPARAM=MulticoreParam(workers=16), extraCols=x,
-           mart=useMart("ensembl",dataset="hsapiens_gene_ensembl"), filter="ensembl_gene_id", attributes="external_gene_name")
-
-save.image(file=paste0(PROJECT, "/results/DEXSeq.RData"))
-```
-
-'''Notes:'''
-Running on PE inversely stranded protocols, look at [https://support.bioconductor.org/p/65844/ this bioconductor thread].
-
-Some parts of the code need to be adjusted. First, we'll need to define our own invertStrand function:
-
-```R
-invertStrand <- function(galp)
-{
-    ## Using a non-exported helper function and direct slot access is
-    ## bad practice and is strongly discouraged. Sorry for doing this here!
-    invertRleStrand <- GenomicAlignments:::invertRleStrand
-    galp@first <- invertRleStrand(galp@first)
-    galp@last <- invertRleStrand(galp@last)
-    galp
-}
-```
-
-Which will then be called from the ''summarizeOverlaps()'' call in ''DEXSeq'', as a preprocessing step:
-
-```R
-counts <- summarizeOverlaps(exonicParts,
-                            bams,
-                            mode="Union",           # default htseq union mode
-                            singleEnd=FALSE,        # data is paired end
-                            inter.feature=FALSE,    # don't discard reads spannings multiple exons
-                            fragments=TRUE,         # count also singletons
-                            ignore.strand=FALSE,
-                            preprocess.reads=invertStrand, # as suggested in: https://support.bioconductor.org/p/65844/
-                            BPPARAM=MulticoreParam(workers=6))
 ```
 
 ## Downsample
@@ -574,101 +479,6 @@ peaks <- with(bed[sel,], RangedData(IRanges(start, end), space=chr))
 gadem <- GADEM(peaks, verbose=1, genome=Hsapiens)
 ```
 
-## Quick and dirty, call peaks with MACS2 and SICER
-
-### MACS2
-
-**targets file**
-
-Create a tab-separated targets file with the IP-input pairs:
-
-```bash
-IP                             IP2                            IPname          INPUT                   INPUTname     group
-Pol2_IP_rrp6_1.bam       Pol2_IP_rrp6_2.bam       Pol2_rrp6       Input_DNA.bam     Input_DNA     Pol2_rrp6
-Pol2_IP_rtt109_1.bam     Pol2_IP_rtt109_2.bam     Pol2_rtt109     Input_DNA.bam     Input_DNA     Pol2_rtt109
-Pol2_IP_WT_1.bam         Pol2_IP_WT_2.bam         Pol2_WT         Input_DNA.bam     Input_DNA     Pol2_WT
-Pol2_IP_rrp6_1-ss.bam    Pol2_IP_rrp6_2-ss.bam    Pol2_rrp6-ss    Input_DNA-ss.bam  Input_DNA-ss  Pol2_rrp6-ss
-Pol2_IP_rtt109_1-ss.bam  Pol2_IP_rtt109_2-ss.bam  Pol2_rtt109-ss  Input_DNA-ss.bam  Input_DNA-ss  Pol2_rtt109-ss
-Pol2_IP_WT_1-ss.bam      Pol2_IP_WT_2-ss.bam      Pol2_WT-ss      Input_DNA-ss.bam  Input_DNA-ss  Pol2_WT-ss
-```
-
-**MACS2**
-
-Remember to change the thresholds (-m), genome size (-g), cutoff (-q) and add --broad when calling broad peaks:
-
-```bash
-#!/bin/bash
-MACS2=/opt/macs2/latest
-PROJECT=/projects/xxx
-TARGETS=${PROJECT}/scripts/targets.txt
-tail -n +2 $TARGETS | while read -r TARGET; do
-    IP=$(       echo $TARGET | cut -f1 -d" ")
-    IP2=$(      echo $TARGET | cut -f2 -d" ")
-    IPname=$(   echo $TARGET | cut -f3 -d" ")
-    INPUT=$(    echo $TARGET | cut -f4 -d" ")
-    INPUTname=$(echo $TARGET | cut -f5 -d" ")
-    if [ ! -e "${PROJECT}/results/macs2" ]; then
-        mkdir -p "${PROJECT}/results/macs2"
-    fi
-    L1="source ${MACS2}/env.sh"
-    L2="${MACS2}/bin/macs2 callpeak -t ${PROJECT}/mapped/$IP ${PROJECT}/mapped/$IP2 -c ${PROJECT}/mapped/$INPUT -n $IPname -m 5 50 -g mm -q 0.05"
-    L3="mv $IPname* ${PROJECT}/results/macs2"
-    echo "$L1 && $L2 && $L3" | bsub -n1 -W1:00 -app Reserve2G -J $IPname -o ${IPname}.out -e ${IPname}.err
-done
-```
-
-### SICER
-**targets file**
-
-Create a tab-separated targets file with the IP-input pairs:
-
-```bash
-IP      INPUT   name
-AE_1_k27m3.bam Input_AE_1_k27m3.bam   AE_1_k27m3
-AE_2_k27m3.bam Input_AE_1_k27m3.bam   AE_2_k27m3
-E125_1_k27m3.bam       Input_E125_1_k27m3.bam E125_1_k27m3
-E125_2_k27m3.bam       Input_E125_1_k27m3.bam E125_2_k27m3
-E145_1_k27m3.bam       Input_E145_1_k27m3.bam E145_1_k27m3
-E145_2_k27m3.bam       Input_E145_1_k27m3.bam E145_2_k27m3
-ISCS_1_k27m3.bam       Input_ISCS_1_k27m3.bam ISCS_1_k27m3
-ISCS_2_k27m3.bam       Input_ISCS_1_k27m3.bam ISCS_2_k27m3
-```
-
-**SICER**
-
-SICER is potentially good to call broad peaks, like H3K27me3 histone marks. Remember to change SICER's parms:
-
-```bash
-#!/bin/bash
-BEDTOOLS=/opt/BEDTools/2.25.0/bin
-SICER=/opt/sicer/1.1
-PROJECT=/projects/xxx
-TARGETS=${PROJECT}/peakcalling_SICER/targets.txt
-
-# SICER parms
-Species=mm9
-redundancy_threshold=1
-window_size=200
-fragment_size=150
-effective_genome_fraction=.74
-gap_size=1000
-FDR=.01
-
-tail -n +2 $TARGETS | while read -r TARGET; do
-        IP=$(   echo $TARGET | cut -f1 -d" ")
-        INPUT=$(echo $TARGET | cut -f2 -d" ")
-        name=$( echo $TARGET | cut -f3 -d" ")
-        WD=${PROJECT}/peakcalling_SICER/${name}
-        if [ ! -e "${WD}" ]; then
-                mkdir "${WD}"
-        fi
-        L1="${BEDTOOLS}/bedtools bamtobed -split -i ${PROJECT}/mapping/mapping_results/${IP} > ${WD}/${IP%.bam}.bed"
-        L2="${BEDTOOLS}/bedtools bamtobed -split -i ${PROJECT}/mapping/mapping_results/${INPUT} > ${WD}/${INPUT%.bam}.bed"
-        L3="source ${SICER}/env.sh && ${SICER}/SICER.sh ${WD} ${IP%.bam}.bed ${INPUT%.bam}.bed ${WD} $Species $redundancy_threshold $window_size $fragment_size $effective_genome_fraction $gap_size $FDR"
-        echo "$L1 && $L2 && $L3" | bsub -n1 -W5:00 -app Reserve2G -J $name -o ${WD}/${name}.out -e ${WD}/${name}.err
-done
-```
-
 ## Retrieve chromosome sizes
 
 Use the UCSC toolkit from the deps tree.
@@ -773,4 +583,194 @@ ggplot(df, aes(x=X2, y=value, fill=as.factor(X1))) +
     theme_bw()
 
 dev.off()
+```
+
+## Quick and dirty, call peaks with MACS2 and SICER
+
+### MACS2
+
+**targets file**
+
+Create a tab-separated targets file with the IP-input pairs:
+
+```bash
+IP                             IP2                            IPname          INPUT                   INPUTname     group
+Pol2_IP_rrp6_1.bam       Pol2_IP_rrp6_2.bam       Pol2_rrp6       Input_DNA.bam     Input_DNA     Pol2_rrp6
+Pol2_IP_rtt109_1.bam     Pol2_IP_rtt109_2.bam     Pol2_rtt109     Input_DNA.bam     Input_DNA     Pol2_rtt109
+Pol2_IP_WT_1.bam         Pol2_IP_WT_2.bam         Pol2_WT         Input_DNA.bam     Input_DNA     Pol2_WT
+Pol2_IP_rrp6_1-ss.bam    Pol2_IP_rrp6_2-ss.bam    Pol2_rrp6-ss    Input_DNA-ss.bam  Input_DNA-ss  Pol2_rrp6-ss
+Pol2_IP_rtt109_1-ss.bam  Pol2_IP_rtt109_2-ss.bam  Pol2_rtt109-ss  Input_DNA-ss.bam  Input_DNA-ss  Pol2_rtt109-ss
+Pol2_IP_WT_1-ss.bam      Pol2_IP_WT_2-ss.bam      Pol2_WT-ss      Input_DNA-ss.bam  Input_DNA-ss  Pol2_WT-ss
+```
+
+**MACS2**
+
+Remember to change the thresholds (-m), genome size (-g), cutoff (-q) and add --broad when calling broad peaks:
+
+```bash
+#!/bin/bash
+MACS2=/opt/macs2/latest
+PROJECT=/projects/xxx
+TARGETS=${PROJECT}/scripts/targets.txt
+tail -n +2 $TARGETS | while read -r TARGET; do
+    IP=$(       echo $TARGET | cut -f1 -d" ")
+    IP2=$(      echo $TARGET | cut -f2 -d" ")
+    IPname=$(   echo $TARGET | cut -f3 -d" ")
+    INPUT=$(    echo $TARGET | cut -f4 -d" ")
+    INPUTname=$(echo $TARGET | cut -f5 -d" ")
+    if [ ! -e "${PROJECT}/results/macs2" ]; then
+        mkdir -p "${PROJECT}/results/macs2"
+    fi
+    L1="source ${MACS2}/env.sh"
+    L2="${MACS2}/bin/macs2 callpeak -t ${PROJECT}/mapped/$IP ${PROJECT}/mapped/$IP2 -c ${PROJECT}/mapped/$INPUT -n $IPname -m 5 50 -g mm -q 0.05"
+    L3="mv $IPname* ${PROJECT}/results/macs2"
+    echo "$L1 && $L2 && $L3" | bsub -n1 -W1:00 -app Reserve2G -J $IPname -o ${IPname}.out -e ${IPname}.err
+done
+```
+
+### SICER
+**targets file**
+
+Create a tab-separated targets file with the IP-input pairs:
+
+```bash
+IP      INPUT   name
+AE_1_k27m3.bam Input_AE_1_k27m3.bam   AE_1_k27m3
+AE_2_k27m3.bam Input_AE_1_k27m3.bam   AE_2_k27m3
+E125_1_k27m3.bam       Input_E125_1_k27m3.bam E125_1_k27m3
+E125_2_k27m3.bam       Input_E125_1_k27m3.bam E125_2_k27m3
+E145_1_k27m3.bam       Input_E145_1_k27m3.bam E145_1_k27m3
+E145_2_k27m3.bam       Input_E145_1_k27m3.bam E145_2_k27m3
+ISCS_1_k27m3.bam       Input_ISCS_1_k27m3.bam ISCS_1_k27m3
+ISCS_2_k27m3.bam       Input_ISCS_1_k27m3.bam ISCS_2_k27m3
+```
+
+**SICER**
+
+SICER is potentially good to call broad peaks, like H3K27me3 histone marks. Remember to change SICER's parms:
+
+```bash
+#!/bin/bash
+BEDTOOLS=/opt/BEDTools/2.25.0/bin
+SICER=/opt/sicer/1.1
+PROJECT=/projects/xxx
+TARGETS=${PROJECT}/peakcalling_SICER/targets.txt
+
+# SICER parms
+Species=mm9
+redundancy_threshold=1
+window_size=200
+fragment_size=150
+effective_genome_fraction=.74
+gap_size=1000
+FDR=.01
+
+tail -n +2 $TARGETS | while read -r TARGET; do
+        IP=$(   echo $TARGET | cut -f1 -d" ")
+        INPUT=$(echo $TARGET | cut -f2 -d" ")
+        name=$( echo $TARGET | cut -f3 -d" ")
+        WD=${PROJECT}/peakcalling_SICER/${name}
+        if [ ! -e "${WD}" ]; then
+                mkdir "${WD}"
+        fi
+        L1="${BEDTOOLS}/bedtools bamtobed -split -i ${PROJECT}/mapping/mapping_results/${IP} > ${WD}/${IP%.bam}.bed"
+        L2="${BEDTOOLS}/bedtools bamtobed -split -i ${PROJECT}/mapping/mapping_results/${INPUT} > ${WD}/${INPUT%.bam}.bed"
+        L3="source ${SICER}/env.sh && ${SICER}/SICER.sh ${WD} ${IP%.bam}.bed ${INPUT%.bam}.bed ${WD} $Species $redundancy_threshold $window_size $fragment_size $effective_genome_fraction $gap_size $FDR"
+        echo "$L1 && $L2 && $L3" | bsub -n1 -W5:00 -app Reserve2G -J $name -o ${WD}/${name}.out -e ${WD}/${name}.err
+done
+```
+
+## Differential exon usage
+
+### DEXSeq
+
+Do differential exon usage with ''DEXSeq'' and ''Bioconductor''
+
+```R
+library(GenomicFeatures)
+library(GenomicAlignments)
+library(Rsamtools)
+library(DEXSeq)
+library(BiocParallel)
+
+PROJECT <- "/project/
+GTF <- "/annotation/Homo_sapiens.GRCh38.84.gtf"
+FC  <- log2(1.5)    # expect 50% more expression
+FDR <- .01
+
+##
+## count reads on exons
+##
+exonicParts <- disjointExons(makeTxDbFromGFF(GTF))
+bams <- BamFileList(list.files(paste0(PROJECT, "/mapped"), pattern="_read\\.bam$", full=TRUE),
+                    index=character(),              # the BAM index file path
+                    asMates=TRUE,                   # records should be paired as mates
+                    obeyQname=TRUE)                 # BAM file is sorted by ‘qname’
+
+counts <- summarizeOverlaps(exonicParts,
+                            bams,
+                            mode="Union",           # default htseq union mode
+                            singleEnd=FALSE,        # data is paired end
+                            inter.feature=FALSE,    # don't discard reads spannings multiple exons
+                            fragments=TRUE,         # count also singletons
+                            ignore.strand=TRUE,     # it's strand specific, but still ignore the strand
+                            BPPARAM=MulticoreParam(workers=6))
+
+##
+## DEXSeq
+##
+colData(counts)$condition <- c(rep("Id2", 3), rep("GFP", 3))
+dds <- DEXSeqDataSetFromSE(counts, design= ~ sample + exon + condition:exon )
+
+# normalize, estimate dispersion, test for differential expression and estimate fold changes
+dds <- estimateSizeFactors(dds)
+dds <- estimateDispersions(dds, BPPARAM=MulticoreParam(workers=16))
+dds <- testForDEU(dds, BPPARAM=MulticoreParam(workers=16))
+dds <- estimateExonFoldChanges(dds, fitExpToVar="condition", BPPARAM=MulticoreParam(workers=16))
+
+# extract significant genes
+res <- DEXSeqResults(dds)
+
+res$log2fold_Id2_GFP <- ifelse(is.na(res$log2fold_Id2_GFP), 0, res$log2fold_Id2_GFP)
+res$padj <- ifelse(is.na(res$padj), 1, res$padj)
+geneids <- unique(res$groupID[abs(res$log2fold_Id2_GFP) > FC & res$padj < FDR])
+
+res2 <- res[res$groupID %in% geneids, ]
+x <- do.call(rbind, by(res2, res2$groupID, function(x) data.frame(padj=min(x$padj), log2fold_Id2_GFP=max(x$log2fold_Id2_GFP))))
+
+DEXSeqHTML(res2, path=paste0(PROJECT, "/results/DEXSeq"), FDR=FDR, BPPARAM=MulticoreParam(workers=16), extraCols=x,
+           mart=useMart("ensembl",dataset="hsapiens_gene_ensembl"), filter="ensembl_gene_id", attributes="external_gene_name")
+
+save.image(file=paste0(PROJECT, "/results/DEXSeq.RData"))
+```
+
+'''Notes:'''
+Running on PE inversely stranded protocols, look at [https://support.bioconductor.org/p/65844/ this bioconductor thread].
+
+Some parts of the code need to be adjusted. First, we'll need to define our own invertStrand function:
+
+```R
+invertStrand <- function(galp)
+{
+    ## Using a non-exported helper function and direct slot access is
+    ## bad practice and is strongly discouraged. Sorry for doing this here!
+    invertRleStrand <- GenomicAlignments:::invertRleStrand
+    galp@first <- invertRleStrand(galp@first)
+    galp@last <- invertRleStrand(galp@last)
+    galp
+}
+```
+
+Which will then be called from the ''summarizeOverlaps()'' call in ''DEXSeq'', as a preprocessing step:
+
+```R
+counts <- summarizeOverlaps(exonicParts,
+                            bams,
+                            mode="Union",           # default htseq union mode
+                            singleEnd=FALSE,        # data is paired end
+                            inter.feature=FALSE,    # don't discard reads spannings multiple exons
+                            fragments=TRUE,         # count also singletons
+                            ignore.strand=FALSE,
+                            preprocess.reads=invertStrand, # as suggested in: https://support.bioconductor.org/p/65844/
+                            BPPARAM=MulticoreParam(workers=6))
 ```
