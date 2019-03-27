@@ -22,7 +22,7 @@
    * [SICER](#sicer)
 * [Differential Exon Usage](#differential-exon-usage)
    * [DEXSeq](#dexseq)
-* [Predict genes network with genemania](predict-genes-network-with-genemania)
+* [Predict genes network with genemania](#predict-genes-network-with-genemania)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
