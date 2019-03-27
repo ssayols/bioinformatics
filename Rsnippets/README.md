@@ -2018,9 +2018,9 @@ atlasData <- lapply(atlasData, function(x) x[[1]])
 stopifnot(all(sapply(atlasData, function(x) rownames(x) == rownames(atlasData[[1]]))))
 
 # extract samples from relevant tissues only
-#atlasData <- lapply(atlasData, function(x) {
-#  x[, grepl("(kidney|renal|liver|pancreas)", colData(x)$"organism_part")]
-#})
+atlasData <- lapply(atlasData, function(x) {
+  x[, grepl("(kidney|renal|liver|pancreas)", colData(x)$"organism_part")]
+})
 ```
 
 ### Get the genomic sequence of a region and plot its nucleotide content
