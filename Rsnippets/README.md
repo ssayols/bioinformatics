@@ -86,6 +86,7 @@
    * [Flatten a GFF/GTF file by gene_id (and get transcript lengths)](#flatten-a-gffgtf-file-by-gene_id-and-get-transcript-lengths)
    * [Get genome wide distribution of features](#get-genome-wide-distribution-of-features)
    * [Download a dataset from GEO using GEOquery](#download-a-dataset-from-geo-using-geoquery)
+   * [Download a dataset from Gene Expression Atlas](#download-a-dataset-from-gene-expression-atlas)
    * [Get the genomic sequence of a region and plot its nucleotide content](#get-the-genomic-sequence-of-a-region-and-plot-its-nucleotide-content)
    * [Gene set enrichment analysis](#gene-set-enrichment-analysis)
       * [GSEA of Biological Processes](#gsea-of-biological-processes)
@@ -1976,6 +1977,50 @@ Get a dataset from GEO directly quering from R and the ''GEOquery'' package from
  # save tables
  write.csv(ex[, grep("Ret", colnames(ex))], file="Ret.csv")
  write.csv(ex[, grep("RD", colnames(ex))], file="RD.csv")
+```
+
+### Download a dataset from Gene Expression Atlas
+
+Interesting, as it includes severals of the major experiments (ENCODE, GTEx, NIH Epigenome Roadmap, etc.).
+Web sources: [Gene Expression Atlas (bulk)](https://www.ebi.ac.uk/gxa/home) and [single cell](https://www.ebi.ac.uk/gxa/sc/home).
+
+```R
+study_table <- rbind(c("E-MTAB-3871", 64   , "Homo Sapiens", "NIH Roadmap Epigenomics Mapping Consortium"),
+                     c("E-MTAB-513" , 16   , "Homo Sapiens", "Illumina Body Map"),
+                     c("E-MTAB-5214", 18736, "Homo Sapiens", "GTEx"),
+                     c("E-MTAB-4344", 25   , "Homo Sapiens", "Michael Snyder's lab (ENCODE)"),
+                     c("E-MTAB-2836", 200  , "Homo Sapiens", "Uhlen's lab 32 tissue samples of 122 individuals"))
+colnames(study_table) <- c("ENA id", "Assays", "Species", "Experiment")
+study_table <- as.data.frame(study_table)
+
+library(ExpressionAtlas)
+library(SummarizedExperiment)
+library(httr)
+library(XML)
+
+# get all experiments matching our query
+response <- httr::GET('https://www.ebi.ac.uk/arrayexpress/xml/v2/experiments?gxa=TRUE&species=Homo%20sapiens')
+stopifnot(status_code(response) == 200)
+parsedXML   <- xmlParse(content(response))
+allExpsNode <- xmlRoot(parsedXML)
+allExperiments <- xmlElementsByTagName(allExpsNode, "experiment")
+atlasExperimentsList <- lapply(allExperiments, function(experimentNode) {
+  c(accession=xmlValue(xmlElementsByTagName(experimentNode, "accession")$accession),
+    title    =xmlValue(xmlElementsByTagName(experimentNode, "name")$name),
+    species  =xmlValue(xmlElementsByTagName(experimentNode, "organism")$organism),
+    expType  =xmlValue(xmlElementsByTagName(experimentNode, "experimenttype")$experimenttype))
+})
+atlasExperiments <- as.data.frame(do.call(rbind, atlasExperimentsList), row.names=1)
+
+# get data from those experiments (RNA-seq only)
+atlasData <- getAtlasData(study_table$`ENA id`)
+atlasData <- lapply(atlasData, function(x) x[[1]])
+stopifnot(all(sapply(atlasData, function(x) rownames(x) == rownames(atlasData[[1]]))))
+
+# extract samples from relevant tissues only
+#atlasData <- lapply(atlasData, function(x) {
+#  x[, grepl("(kidney|renal|liver|pancreas)", colData(x)$"organism_part")]
+#})
 ```
 
 ### Get the genomic sequence of a region and plot its nucleotide content
