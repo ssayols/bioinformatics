@@ -22,6 +22,7 @@
    * [SICER](#sicer)
 * [Differential Exon Usage](#differential-exon-usage)
    * [DEXSeq](#dexseq)
+* [Predict genes network with genemania](predict-genes-network-with-genemania)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -773,4 +774,59 @@ counts <- summarizeOverlaps(exonicParts,
                             ignore.strand=FALSE,
                             preprocess.reads=invertStrand, # as suggested in: https://support.bioconductor.org/p/65844/
                             BPPARAM=MulticoreParam(workers=6))
+```
+
+## Predict genes network with genemania
+
+A bit convoluted to setup. First get the [command line tools jar](http://pages.genemania.org/command-line-tools/). Then, install the [Cytoscape app](http://apps.cytoscape.org/apps/genemania), open Cytoscape and download the network sources for the desired organism (I didn't find any other way to get them from genemania.org). Once downloaded, put them together with the binary (the jar file).
+
+```R
+GM_THREADS <- 4
+GM_PATH <- "/home/sayolspu/src/tox_prediction/networks/genemania-cytoscape-plugin-2.18.jar"
+GM_DATA_PATH <- "/home/sayolspu/src/tox_prediction/networks/genemania-data/gmdata-2017-07-13-core/"
+
+gmn <- tapply(drugtargets$target_id, drugtargets$drug_id, function(x) {
+  # temp file with the query:
+  # S. Cerevisiae
+  # CDC27 APC11 APC4  XRS2  RAD54 APC2  RAD52 RAD10 MRE11 APC5
+  # preferred
+  # 150
+  # bp
+  input   <- tempfile()
+  output  <- tempfile()
+  targets <- get.nwobj.genes(unique(x))$genesymbol
+  writeLines(paste("H. Sapiens",
+                   paste(targets, collapse="\t"),
+                   "preferred",  # coexp (Co-expr), gi (Genetic int), pi (Physical int)
+                   "150", # related-gene-limit
+                   "bp",  # Networks are weighted in an attempt to reproduce GO BP co-annotation patterns
+                   sep="\n"),
+             input)
+
+  # run command
+  cmd <- paste("java -Xmx1800M",
+               paste("-cp", GM_PATH, "org.genemania.plugin.apps.QueryRunner"),
+               paste("--data", GM_DATA_PATH),
+               "--out xml",
+               "--threads", GM_THREADS,
+               "--results", output,
+               input)
+  dir.create(output)
+  try(system(cmd))
+
+  # parse output
+  f <- file.path(output, paste0(basename(input), "-results.report.xml"))
+  if(file.exists(f)) {
+    gm <- xmlToList(xmlParse(f))
+    nw <- do.call(rbind, gm[["results"]][["interactions"]])
+    nw <- as_adjacency_matrix(graph_from_edgelist(nw[, 1:2, drop=FALSE]), sparse=FALSE)
+  } else {
+    nw <- matrix(nrow=0, ncol=0)
+  }
+
+  nw
+})
+
+names(gmn) <- tapply(drugtargets$drug_name, drugtargets$drug_id, unique)
+saveRDS(gmn, file="DILI_drugtargets_genemania_networks.RDS")
 ```
