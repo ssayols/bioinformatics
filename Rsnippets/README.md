@@ -135,6 +135,7 @@
    * [Show a progress bar](#show-a-progress-bar)
    * [Parallelize code that generates PDF plots](#parallelize-code-that-generates-pdf-plots)
    * [Parallel by](#parallel-by)
+   * [Split and Join PDF files](#split-and-join-pdf-files)
 
 ## Array analysis
 
@@ -3187,3 +3188,28 @@ res <- data.table::rbindlist(mclapply(split(x, x$key), function(x) {
 }, mc.cores=getOption("mc.cores", 4L)))
 ```
 
+### Split and Join PDF files
+
+```R
+# Load pdftools
+library(pdftools)
+
+# extract some pages
+pdf_subset('https://cran.r-project.org/doc/manuals/r-release/R-intro.pdf',
+  pages = 1:3, output = "subset.pdf")
+
+# Should say 3
+pdf_length("subset.pdf")
+Similarly pdf_combine() is used to join several pdf files into one.
+
+# Generate another pdf
+pdf("test.pdf")
+plot(mtcars)
+dev.off()
+
+# Combine them with the other one
+pdf_combine(c("test.pdf", "subset.pdf"), output = "joined.pdf")
+
+# Should say 4
+pdf_length("joined.pdf")
+```
