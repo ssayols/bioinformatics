@@ -125,6 +125,7 @@
    * [Test the significance of the overlap between 2 lists](#test-the-significance-of-the-overlap-between-2-lists)
    * [Network analysis](#network-analysis)
    * [Split data for CV](#split-data-for-cv)
+   * [Compute PI-value based on FC and p-value ](#compute-pi-value-based-on-fc-and-p-value)
 * [Other stuff that doesn't fit into any other category](#other-stuff-that-doesnt-fit-into-any-other-category)
    * [Supercomputing](#supercomputing)
    * [Parse arguments](#parse-arguments)
@@ -2971,6 +2972,22 @@ for(i in 1:10){
     testData <- yourData[testIndexes, ]
     trainData <- yourData[-testIndexes, ]
     #Use the test and train data partitions however you desire...
+}
+```
+
+### Compute PI-value based on FC and p-value 
+
+PI-value is a score suggested in REF, which combines log2FC and FDR to assess significance.
+It basically transforms the pvalue (-log10) by penalizing or enhancing it based on the log2FC.
+Check the publication and supplemetary materials for a more detailed explanation.
+REF: https://academic.oup.com/bioinformatics/article-lookup/doi/10.1093/bioinformatics/btr671
+
+```R
+# @param pval a vector of p-values
+# @param log2fc a vector of log2 tranformed fc
+PIscore <- function(pval, log2fc) {
+  list(score=log2fc * -log10(pval),   # the score
+       pval =pval ^ log2fc)           # the transformed pval derived from the new score
 }
 ```
 
