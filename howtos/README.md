@@ -1,6 +1,7 @@
 ## Table of Contents
 
 * [Convert BAM to BigWig](#convert-bam-to-bigwig)
+* [Convert BAM to BigWig with R](#convert-bam-to-bigwig-with-R)
 * [Deduplicate UMIs](#deduplicate-umis)
 * [Downsample](#downsample)
    * [Fastq](#fastq)
@@ -56,6 +57,18 @@ do
         echo CONVERT $BAM to BIGWIG;
         $BEDGRAPHBW ${BAM%_sorted.bam}_scaled.bedgraph $GENOME ${BAM%_sorted.bam}_scaled.bw
 done
+```
+
+## Convert BAM to BigWig with R
+
+This method doesn't include normalization to total coverage.
+
+```R
+rtracklayer::export.bw(con="sample.bw",               ## export to bigwig
+  GenomicAlignments::coverage(                        ## convert to coverages
+    GenomicAlignments::readGAlignments("sample.bam")  ## read in BAM file (use readGAlignmentPairs for paired-end files)
+  )
+)
 ```
 
 ## Deduplicate UMIs
