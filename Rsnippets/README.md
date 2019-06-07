@@ -107,6 +107,7 @@
    * [Read a fasta file](#read-a-fasta-file)
    * [Get transcripts from a Bioconductor's AnnotationDb](#get-transcripts-from-a-bioconductors-annotationdb)
    * [Get information of genomic features](#get-information-of-genomic-features)
+   * [Convert BAM to BigWig](#convert-bam-to-bigwig)
 * [Statistical analysis](#statistical-analysis)
    * [Principal Component Analysis (PCA)](#principal-component-analysis-pca)
    * [High Level PCA](#hihg-level-pca)
@@ -2613,6 +2614,17 @@ df <- data.frame(bp=c(flatten(promoters(txdb, upstream=1000, downstream=1000)),
                       sum(as.numeric(seqlengths(txdb)))))
 df$perc <- round(100 * df$bp / df$bp[8], 2) # [8] is the total genome size
 rownames(df) <- c("promoters", "transcripts", "exons", "cds", "introns", "threeUTRs", "fiveUTRs", "genome")
+```
+### Convert BAM to BigWig
+
+This method doesn't include normalization to total coverage.
+
+```R
+rtracklayer::export.bw(
+  GenomicAlignments::coverage(                        # convert to coverages
+    GenomicAlignments::readGAlignments("sample.bam")  # read in BAM file (use readGAlignmentPairs for paired-end files)
+  ), con="sample.bw"                                  # export to bigwig
+)
 ```
 
 ## Statistical analysis
