@@ -43,6 +43,7 @@
      * [Volcano](#volcano)
  * [Plots](#plots-2)
    * [Color palettes](#color-palettes)
+      * [Display a palette](#display-a-palette)
       * [A colorblind-friendly palette](#a-colorblind-friendly-palette)
       * [Color palettes with RColorBrewer](#color-palettes-with-rcolorbrewer)
       * [Color palettes with colorspace](#color-palettes-with-colorspace)
@@ -802,6 +803,17 @@ ggplot(df_limma, aes(x = log2foldchange, y = -log10(qval), color = is_significan
 ## Plots
 
 ### Color palettes
+
+#### Display a palette
+
+```R
+show_palette <- function(colors) {
+  image(1:length(colors), 1, as.matrix(1:length(colors)), col=colors, 
+    xlab="", ylab="", xaxt="n", yaxt="n", bty="n")
+}
+
+show_palette(rainbow(6))
+```
 
 #### A colorblind-friendly palette
 
