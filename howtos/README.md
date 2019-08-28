@@ -24,6 +24,7 @@
 * [Differential Exon Usage](#differential-exon-usage)
    * [DEXSeq](#dexseq)
 * [Predict genes network with genemania](#predict-genes-network-with-genemania)
+* [Annotation of principal isoforms from Biomart](#annotation-of-principal-isoforms-from-biomart)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -843,3 +844,27 @@ gmn <- tapply(drugtargets$target_id, drugtargets$drug_id, function(x) {
 names(gmn) <- tapply(drugtargets$drug_name, drugtargets$drug_id, unique)
 saveRDS(gmn, file="DILI_drugtargets_genemania_networks.RDS")
 ```
+
+## Annotation of principal isoforms from Biomart
+
+Efforts for curating transcripts available only in GRCH38 are
+  * Gencode basic flag: subset of the GENCODE transcript set, containing only 5' and 3' complete transcripts
+  * MANE Select: default transcript per human gene that is representative of biology, well-supported, expressed and highly-conserved
+  * APPRIS selects a single CDS variant for each gene as the 'PRINCIPAL' isoform based on the range of protein features
+
+```
+appris <- read.delim("http://apprisws.bioinfo.cnio.es/pub/current_release/datafiles/homo_sapiens/GRCh37/appris_data.principal.txt", head=FALSE)
+appris <- appris[appris$V5 == "PRINCIPAL:1", ]
+
+mart <- useDataset("hsapiens_gene_ensembl", useMart("ENSEMBL_MART_ENSEMBL", host="grch37.ensembl.org"))
+regions  <- getBM(attributes=c("ensembl_gene_id", "ensembl_transcript_id", "external_gene_name", "chromosome_name",
+                               "transcript_gencode_basic", "transcript_start", "transcript_end",
+                               "strand", "transcription_start_site"),
+                  filters="biotype", values="protein_coding", mart=mart)
+                  
+regions <- regions[regions$ensembl_transcript_id %in% appris$V3, ]  # main isoform
+regions <- regions[!is.na(regions$transcript_gencode_basic), ]      # only complete transcripts (redundant with appris)
+regions$strand <- ifelse(regions$strand[1] > 0, "+", "-")
+regions <- makeGRangesFromDataFrame(regions, keep.extra.columns=TRUE)
+```
+
