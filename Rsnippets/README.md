@@ -613,7 +613,7 @@ getBamSignal <- function(f, gr, bins=101, region=500, filetype="bam") {
 
     # uncompress the coverage and split the region in 101 windows, and report the avg coverage per bin
     bins <- cut(1:length(x), bins)
-    x <- c(rep(runValue(x), runLength(x))) # uncompress
+    x <- decode(x)   # uncompress, equivalent to: c(rep(runValue(x), runLength(x)))
     x <- tapply(x, bins, mean)             # aggregate reads per bin
   }))
 
