@@ -34,7 +34,7 @@ trim = {
     output.dir = PROJECT + "/rawdata"
     def CUTADAPT_FLAGS =
         " --trim-n" + 
-        " -b " + adapter +
+        adapters.split().collect { " -b ${it}" }.join() +
         " -j " + threads +
         " -m " + min_len +
         " -M " + max_len
@@ -112,10 +112,9 @@ bam2bw = {
 
 Bpipe.run {
     "%.fastq.gz" * [
-//        trim.using(adapter="TGGAATTCTCGGGTGCCAAGG", min_len=15, max_len=36, threads=THREADS) +
-        trim.using(adapter="TGGAATTCTCGGGTGCCAAGG", min_len=15, max_len=100, threads=THREADS) +
-        bowtie_rrna.using(max_mismatches=2, threads=THREADS, ref=RRNA_REF) +
-        bowtie.using(max_mismatches=2, max_multimap=1, threads=THREADS, ref=HG19_REF) +
+        trim.using(adapters: "TGGAATTCTCGGGTGCCAAGG", min_len: 15, max_len: 100, threads: THREADS) +
+        bowtie_rrna.using(max_mismatches: 2, threads: THREADS, ref: RRNA_REF) +
+        bowtie.using(max_mismatches: 2, max_multimap: 1, threads: THREADS, ref: HG19_REF) +
         bam2bw
     ]
 }
