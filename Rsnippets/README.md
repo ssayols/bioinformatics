@@ -3175,7 +3175,25 @@ dbGetQuery(db, "SELECT COUNT(*) FROM mtcars WHERE mpg < 20")
 dbDisconnect(db)
 ```
 
-NOTE: for very big data.frames or intensive queries, no index are create with `dbWriteTable()`. An option is to pre-create the table + indexes with `dbExecute()` prior to dumping the data.frame on the table (preventing the function to create the table for us).
+NOTE: for very big data.frames or intensive queries, no index are create with `dbWriteTable()`.
+
+```R
+dbGetQuery(db, "EXPLAIN QUERY PLAN SELECT COUNT(*) FROM mtcars WHERE mpg < 20")
+#   id parent notused            detail
+# 1  3      0       0 SCAN TABLE mtcars   <-- it's going to crawl through whole the table
+```
+
+An option is to pre-create the table + indexes with `dbExecute()` prior to dumping the data.frame on the table (preventing the function to create the table for us).
+
+```R
+dbCreateTable(db, "mtcars2", mtcars)
+dbExecute(db, "CREATE INDEX idx_mpg ON mtcars2(mpg)")
+# [1] 0
+dbWriteTable(db, "mtcars2", mtcars, append=TRUE)
+dbGetQuery(db, "EXPLAIN QUERY PLAN SELECT COUNT(*) FROM mtcars2 WHERE mpg < 20")
+#   id parent notused                                                    detail
+# 1  3      0       0 SEARCH TABLE mtcars2 USING COVERING INDEX idx_mpg (mpg<?)
+```
 
 ### Show a progress bar
 
