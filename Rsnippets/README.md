@@ -135,6 +135,7 @@
    * [Read data from an Excel shit](#read-data-from-an-excel-shit)
    * [SQLite database access](#sqlite-database-access)
    * [Other databases](#other-databases)
+   * [In memory database](#in-memory-database)
    * [Show a progress bar](#show-a-progress-bar)
    * [Parallelize code that generates PDF plots](#parallelize-code-that-generates-pdf-plots)
    * [Parallel by](#parallel-by)
@@ -2130,7 +2131,7 @@ Alternatively genes names can be obtained from the SQL database (in case the pre
 library(DBI)
 library(RSQLite)
 
-drv <- dbDriver("SQLite")
+drv <- dbDriver("kQLite")
 con <- dbConnect(drv, dbname="/usr/local/lib/R/site-library/org.Hs.eg.db/extdata/org.Hs.eg.sqlite")
 
 genes <- apply(result, 1, function(x) {
@@ -3102,7 +3103,7 @@ library(gdata)
 df <- read.xls("myfile.xlsx"), sheet=1, header=TRUE)
 ```
 
-### SQLite database access
+### [[SQLite]] database access
 
 Access a local SQLite database using the ''DBI'' and ''SQLite'' packages:
 
@@ -3151,6 +3152,30 @@ x <- fetch(x, n=5)
 # or
 x <- dbGetQuery(mydb, 'select * from gene;')
 ```
+
+### In memory database
+
+Put a data.frame in a in-memory SQLite database, and write queries like a pro!
+
+```R
+library(DBI)
+db <- dbConnect(RSQLite::SQLite(), ":memory:")
+dbWriteTable(db, "mtcars", mtcars)
+head(dbReadTable(db, "mtcars"))
+#    mpg cyl disp  hp drat    wt  qsec vs am gear carb
+# 1 21.0   6  160 110 3.90 2.620 16.46  0  1    4    4
+# 2 21.0   6  160 110 3.90 2.875 17.02  0  1    4    4
+# 3 22.8   4  108  93 3.85 2.320 18.61  1  1    4    1
+# 4 21.4   6  258 110 3.08 3.215 19.44  1  0    3    1
+# 5 18.7   8  360 175 3.15 3.440 17.02  0  0    3    2
+# 6 18.1   6  225 105 2.76 3.460 20.22  1  0    3    1
+dbGetQuery(db, "SELECT COUNT(*) FROM mtcars WHERE mpg < 20")
+#   COUNT(*)
+# 1       18
+dbDisconnect(db)
+```
+
+NOTE: for very big data.frames or intensive queries, no index are create with `dbWriteTable()`. An option is to pre-create the table + indexes with `dbExecute()` prior to dumping the data.frame on the table (preventing the function to create the table for us).
 
 ### Show a progress bar
 
