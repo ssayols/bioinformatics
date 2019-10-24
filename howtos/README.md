@@ -2,6 +2,7 @@
 
 * [Convert BAM to BigWig](#convert-bam-to-bigwig)
 * [Convert BAM to BigWig with R](#convert-bam-to-bigwig-with-R)
+* [Convert GTF to BED](#convert-gtf-to-bed)
 * [Deduplicate UMIs](#deduplicate-umis)
 * [Downsample](#downsample)
    * [Fastq](#fastq)
@@ -70,6 +71,14 @@ rtracklayer::export.bw(con="sample.bw",               ## export to bigwig
     GenomicAlignments::readGAlignments("sample.bam")  ## read in BAM file (use readGAlignmentPairs for paired-end files)
   )
 )
+```
+
+## Convert GTF to BED
+
+See https://github.com/ExpressionAnalysis/ea-utils/blob/master/clipper/gtf2bed
+
+```bash
+gtf2bed.pl Saccharomyces_cerevisiae.R64-1-1.86.gtf > Saccharomyces_cerevisiae.R64-1-1.86.bed
 ```
 
 ## Deduplicate UMIs
