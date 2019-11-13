@@ -2826,6 +2826,36 @@ Evaluate cluster strength by calculating p-values for hierarchical clustering vi
  stopCluster(cl)
 ```
 
+### Evaluate cluster similarity
+
+Evaluate how similar are two different clusterings of the same data.
+This can be done using the [Rand index](https://en.wikipedia.org/wiki/Rand_index), which is defined as the frequency of occurrence of agreements over the total pairs: 
+
+Ri = (TP + TN) / (TP + TN + FP + FN)
+
+It is described in this [blog post](https://davetang.org/muse/2017/09/21/the-rand-index/) and implemented in the [fossil package](https://cran.r-project.org/web/packages/fossil/index.html) as:
+
+```R
+rand.index <- function (group1, group2) {
+    # For each clustering, create a matrix of all possibles pairs.
+    # A 0 means both are in the same cluster, >0 otherwise.
+    x <- abs(sapply(group1, function(x) x - group1))
+    x[x > 1] <- 1
+    y <- abs(sapply(group2, function(x) x - group2))
+    y[y > 1] <- 1
+    
+    # sum to get all the disagreements (divide by two because the pairs are counted twice)
+    sg <- sum(abs(x - y))/2
+    
+    # get the total number of pairs
+    bc <- choose(dim(x)[1], 2)
+    
+    # calculate the rand index
+    ri <- 1 - sg/bc
+    return(ri)
+}
+```
+
 ### Calculate ROC curves from a predictor using the ''ROCR'' package
 
 ```R
