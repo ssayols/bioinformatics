@@ -2560,6 +2560,17 @@ f.smooth <- function(x) {
 stopCluster(cl)
 ```
 
+Alternatively, call `affy::normalize.loess`. It probably does the real loess normalization right.
+
+**NOTE:** `GEOquery::getGEO()` most likely come already normalized (under responsability of the submitter):
+
+```
+Value measurements for each Sample within a GEO DataSet (GDS) are assumed to be 
+calculated in an equivalent manner, that is, considerations such as background 
+processing and normalization are consistent across the dataset. Information 
+reflecting experimental design is provided through GDS subsets.
+```
+
 ### Calculate the reverse-complimentari of a sequence
 
 ```R
