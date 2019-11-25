@@ -2571,6 +2571,13 @@ processing and normalization are consistent across the dataset. Information
 reflecting experimental design is provided through GDS subsets.
 ```
 
+Also, from GEO submitter's spreadsheet info, we get that:
+
+* **Matrix table:** The matrix table is a spreadsheet containing the final, normalized values that are comparable across rows and Samples, and preferably processed as described in any accompanying manuscript.
+* **Raw data files:** In addition to the normalized data provided in the Matrix table, submitters are required to provide raw data, usually in the form of supplementary raw data files. This facilitates the unambiguous interpretation of the data and potential verification of the conclusions as described in the MIAME and MINSEQE standards.
+
+The **Matrix table** is downloaded with `GEOquery::getGEO()`, while the **Raw data files:** are downloaded from the web interface, with the `Supplementary file` link at the bottom (usually a tar of rawdata files).
+
 ### Calculate the reverse-complimentari of a sequence
 
 ```R
