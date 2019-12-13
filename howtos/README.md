@@ -861,7 +861,7 @@ Efforts for curating transcripts available only in GRCH38 are
   * MANE Select: default transcript per human gene that is representative of biology, well-supported, expressed and highly-conserved
   * APPRIS selects a single CDS variant for each gene as the 'PRINCIPAL' isoform based on the range of protein features
 
-```
+```R
 appris <- read.delim("http://apprisws.bioinfo.cnio.es/pub/current_release/datafiles/homo_sapiens/GRCh37/appris_data.principal.txt", head=FALSE)
 appris <- appris[appris$V5 == "PRINCIPAL:1", ]
 
