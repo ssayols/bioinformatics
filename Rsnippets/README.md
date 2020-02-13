@@ -95,6 +95,7 @@
       * [GSEA of KEGG or custom db](#gsea-of-kegg-or-custom-db)
       * [GSEA of a custom GO (slim) db](#gsea-of-a-custom-go-slim-db)
       * [GO functional analysis with clusterProfiler](#go-functional-analysis-with-clusterprofiler)
+      * [GO functional analysis with clusterProfiler and DAVID](#go-functional-analysis-with-clusterprofiler-and-david)
       * [Reducing GO DAGs with Semantic Similarity](#reducing-go-dags-with-semantic-similarity)
       * [Summarizing by scoring frequencies of words](#summarizing-by-scoring-frequencies-of-words)
       * [Summarizing by clustering similarity scores between terms](#summarizing-by-clustering-similarity-scores-between-terms)
@@ -2243,6 +2244,56 @@ gsc  <- GeneSetCollection(goframe, setType=GOCollection())
 ```
 
 #### GO functional analysis with clusterProfiler
+
+First, convert gene ids from entrez to ensembl and gene symbols:
+
+```R
+library(clusterProfiler)
+data(geneList, package="DOSE")
+gene <- names(geneList)[abs(geneList) > 2]
+gene.df <- bitr(gene, fromType = "ENTREZID",
+        toType = c("ENSEMBL", "SYMBOL"),
+        OrgDb = org.Hs.eg.db)
+head(gene.df)
+##   ENTREZID         ENSEMBL SYMBOL
+## 1     4312 ENSG00000196611   MMP1
+## 2     8318 ENSG00000093009  CDC45
+## 3    10874 ENSG00000109255    NMU
+## 4    55143 ENSG00000134690  CDCA8
+## 5    55388 ENSG00000065328  MCM10
+## 6      991 ENSG00000117399  CDC20
+```
+
+Then do GO over-representation test:
+
+```R
+ego <- enrichGO(gene          = gene,
+                universe      = names(geneList),
+                OrgDb         = org.Hs.eg.db,
+                ont           = "CC",
+                pAdjustMethod = "BH",
+                pvalueCutoff  = 0.01,
+                qvalueCutoff  = 0.05,
+        readable      = TRUE)
+head(ego)
+```
+
+and/or GSEA analysis:
+
+```R
+ego3 <- gseGO(geneList     = geneList,
+              OrgDb        = org.Hs.eg.db,
+              ont          = "CC",
+              nPerm        = 1000,
+              minGSSize    = 100,
+              maxGSSize    = 500,
+              pvalueCutoff = 0.05,
+              verbose      = FALSE)
+```
+
+How to perform other analysis with `clusterProfiler` using different databases, including KEGG and MsigDB, can be found in the [clusterProfiler book](https://yulab-smu.github.io/clusterProfiler-book/index.html).
+
+#### GO functional analysis with clusterProfiler and DAVID
 
 Use visualization functions provided by ''clusterProfiler'' to plot GO enrichment analysis calculated through DAVID. ''clusterProfiler'' also allows calculating the GO analysis through up-to-date R packages instead of using the old and unmantained DAVID.
 
