@@ -3146,13 +3146,11 @@ This is just a suggestion on how to deal with input parms:
 
 ```R
 parseArgs <- function(args, string, default=NULL, as.is=TRUE) {
-
-	if(length(i <- grep(string, args, fixed=T)) == 1) {
-		x <- gsub(string, "", args[i])
+  if(length(i <- grep(string, args, fixed=T)) == 1) {
+    x <- gsub(string, "", args[i])
     return(if(as.is) x else eval(parse(text=x)))
   }
-    
-	if(!is.null(default)) default else NA
+  if(!is.null(default)) default else NA
 }
 
 args   <- commandArgs(T)
