@@ -3145,29 +3145,41 @@ print(parallelCluster)
 This is just a suggestion on how to deal with input parms:
 
 ```R
-parseArgs <- function(args, string, default=NULL, convert="as.character") {
+parseArgs <- function(args, string, default=NULL, as.is=TRUE) {
 
-    if(length(i <- grep(string, args, fixed=T)) == 1)
-        return(do.call(convert, list(gsub(string, "", args[i]))))
-
-    if(!is.null(default)) default else do.call(convert, list(NA))
+	if(length(i <- grep(string, args, fixed=T)) == 1) {
+		x <- gsub(string, "", args[i])
+    return(if(as.is) x else eval(parse(text=x)))
+  }
+    
+	if(!is.null(default)) default else NA
 }
 
-args <- commandArgs(T)
-ftargets     <- parseArgs(args, "targets=", "targets.txt")     # file describing the targets
-fcontrasts   <- parseArgs(args, "contrasts=", "contrasts.txt") # file describing the contrasts
-mmatrix      <- parseArgs(args, "mmatrix=", "~0+group")        # model matrix (or ~0+group for multiple comparisons)
-filter.genes <- parseArgs(args, "filter=", TRUE, convert="as.logical") # filter invariant genes?
-pre          <- parseArgs(args, "prefix=", "")    # prefix to remove from the sample name
-suf          <- parseArgs(args, "suffix=", "_readcounts.tsv")    # suffix to remove from the sample name
-cwd          <- parseArgs(args, "cwd=", "./")     # current working directory
-out          <- parseArgs(args, "out=", "DE.edgeR") # output filename
+args   <- commandArgs(T)
+input  <- parseArgs(args, "--input=")
+output <- parseArgs(args, "--output=")
+cutoff <- parseArgs(args, "--cutoff=")
+color  <- parseArgs(args, "--color=" , "blue")
+lwd    <- parseArgs(args, "--lwd=" , 1, as.is=FALSE)
+smooth_method <- parseArgs(args, "--smooth=", "none")
+smoothness    <- parseArgs(args, "--smoothness=" , 2/3, as.is=FALSE)
 
-runstr <- "Rscript DE.edgeR.R [targets=targets.txt] [contrasts=contrasts.txt] [mmatrix=~0+group] [filter=TRUE] [prefix=RE] [suffix=RE] [cwd=.] [out=DE.edgeR]"
-if(!file.exists(ftargets))   stop("File", ftargets, "does NOT exist. Run with:\n", runstr)
-if(!file.exists(fcontrasts)) stop("File", fcontrasts, "does NOT exist. Run with:\n", runstr)
-if(!file.exists(cwd))        stop("Dir", cwd, "does NOT exist. Run with:\n", runstr)
-if(is.na(filter.genes))      stop("Filter (filter invariant genes) has to be either TRUE or FALSE. Run with:\n", runstr)
+runstr <- paste("Call with: Rscript plotProfile.R <arguments>",
+                "Mandatory arguments:",
+                "  --input=<matrix_A.txt>",
+                "  --output=<matrix_A.pdf>",
+                "  --cutoff=<10>",
+                "Optional arguments:",
+                "  --color=[blue]     : line color (hex code or color name)",
+                "  --lwd=[1]          : line width. Range [0..Inf], defaults to 1",
+                "  --smooth=[method]  : draw smoothed line instead, using [method]. Supported methods: none, lowess, tukey",
+                "                       see ?lowess and ?smooth in R for details on this methods. Defaults to none"
+                "  --smoothness=[2/3] : smoothness parameter. Defaults to 2/3 for method lowess",
+                sep="\n")
+if(any(grepl("^-h|^--help", args))) stop(runstr)
+if(is.na(input )) stop(runstr)
+if(is.na(output)) stop(runstr)
+if(is.na(cutoff)) stop(runstr)
 ```
 
 ### Write data into an Excel shit
