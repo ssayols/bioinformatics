@@ -26,6 +26,7 @@
    * [DEXSeq](#dexseq)
 * [Predict genes network with genemania](#predict-genes-network-with-genemania)
 * [Annotation of principal isoforms from Biomart](#annotation-of-principal-isoforms-from-biomart)
+* [DGE with limma if raw counts are not available](#dge-with-limma-if-raw-counts-are-not-available)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -875,4 +876,22 @@ regions <- regions[regions$ensembl_transcript_id %in% appris$V3, ]  # main isofo
 regions <- regions[!is.na(regions$transcript_gencode_basic), ]      # only complete transcripts (redundant with appris)
 regions$strand <- ifelse(regions$strand[1] > 0, "+", "-")
 regions <- makeGRangesFromDataFrame(regions, keep.extra.columns=TRUE)
+```
+
+## DGE with limma if raw counts are not available
+
+If raw counts are not available,  proceed as suggested in this post (and in limma's vignette)
+  * https://support.bioconductor.org/p/92303/
+```
+If you really were stuck with nothing but CPM values, then the best approach would be to transform to log2 values:
+y <- log2(CPM + 0.1)
+and then analyse in the limma package as if it was microarray data, using a limma-trend type analysis.
+```
+
+* https://www.bioconductor.org/packages/release/bioc/vignettes/limma/inst/doc/usersguide.pdf
+```
+If the sequencing depth is reasonably consistent across the RNA samples, then the simplest and most
+robust approach to differential exis to use limma-trend. This approach will usually work well if the
+ratio of the largest library size to the smallest is not more than about 3-fold.
+In the limma-trend approach, the counts are converted to logCPM values using edgeR’s cpm function
 ```
