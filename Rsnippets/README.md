@@ -75,6 +75,7 @@
    * [Plot chromosome ideograms](#plot-chromosome-ideograms)
    * [Plot chromosome ideograms with additional tracks](#plot-chromosome-ideograms-with-additional-tracks)
    * [Gviz plots](#gviz-plots)
+   * [Circos plots](#circos-plots)
    * [Graphical representation of contingency tables](#graphical-representation-of-contingency-tables)
    * [ChIPseq plots](#chipseq-plots)
 * [Miscellaneous bioinformatic related stuff](#miscellaneous-bioinformatic-related-stuff)
@@ -85,7 +86,7 @@
    * [Drug response curves using the ''drc'' package](#drug-response-curves-using-the-drc-package)
    * [Permutation test to identify if 2 curves are significantly different](#permutation-test-to-identify-if-2-curves-are-significantly-different)
    * [GenomicRanges](#genomicranges)
-   * [Converting seqlevel styles](#convertingseqlevelstyles)
+   * [Converting seqlevel styles](#converting-seqlevel-styles)
    * [Converting GTF to GFF3](#converting-gtf-to-gff3)
    * [Flatten a GFF/GTF file by gene_id (and get transcript lengths)](#flatten-a-gffgtf-file-by-gene_id-and-get-transcript-lengths)
    * [Get genome wide distribution of features](#get-genome-wide-distribution-of-features)
@@ -1624,6 +1625,38 @@ tracks <- c(list(IdeogramTrack(genome=GENOME, chromosome=CHR),
                    bw.tracks, names(bw.tracks), SIMPLIFY=FALSE))
 
 plotTracks(tracks, type="histogram")
+```
+
+### Circos plots
+
+The nice [https://jokergoo.github.io/circlize_book/book/ Circlize] package for visualization of genomic data. More examples in his book.
+
+Very basic usage, with a barplot showing number of breaks at some genomic loci:
+
+```R
+library(circlize)
+
+# load counts of each sample to known AsiSI cut sites
+x <- read.delim("./results/asisi_sites.txt")
+x$seqnames <- paste0("chr", x$seqnames)
+
+#  seqnames   start     end width strand asisi_ctrl_1 asisi_ctrl_2 asisi_4oth_1
+#1        1 1110919 1110926     8      *            0            0            4
+#2        1 2063312 2063319     8      *            0            0            0
+#3        1 2152681 2152688     8      *            0            0            0
+#4        1 2322833 2322840     8      *            0            0            0
+#5        1 2985156 2985163     8      *            0            0            1
+#6        1 3103043 3103050     8      *            0            0            1
+
+for(i in grep("^asisi", colnames(x))) {  #  samples start with asisi
+    df <- x[x[[i]] > 0, c(1:3, i)]       # columns 1:5 are chr, start, end, width, strand
+     
+    circos.initializeWithIdeogram(species="hg19")
+        circos.genomicTrack(df, panel.fun=function(region, value, ...) {
+        circos.genomicLines(region, value, type="h", col=c("#FF000080"))
+          })
+    text(0, 0, colnames(x)[i], cex = 0.6)
+}
 ```
 
 ### Graphical representation of contingency tables
