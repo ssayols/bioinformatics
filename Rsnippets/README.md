@@ -85,6 +85,7 @@
    * [Drug response curves using the ''drc'' package](#drug-response-curves-using-the-drc-package)
    * [Permutation test to identify if 2 curves are significantly different](#permutation-test-to-identify-if-2-curves-are-significantly-different)
    * [GenomicRanges](#genomicranges)
+   * [Converting seqlevel styles](#convertingseqlevelstyles)
    * [Converting GTF to GFF3](#converting-gtf-to-gff3)
    * [Flatten a GFF/GTF file by gene_id (and get transcript lengths)](#flatten-a-gffgtf-file-by-gene_id-and-get-transcript-lengths)
    * [Get genome wide distribution of features](#get-genome-wide-distribution-of-features)
@@ -1888,6 +1889,47 @@ mm <- findOverlaps(rd1, rd2, maxgap=2000)
 # add the columns with the feature names from the query
 solucio <- data.frame(as.data.frame(rd1[as.matrix(mm)[, 1], ]), as.data.frame(rd2[as.matrix(mm)[, 2], ]))
 write.csv(solucio, file="solucio.csv")
+```
+
+### Converting seqlevel styles
+
+eg:UCSC to Ensembl, using GenomeInfoDb:
+
+```R
+library(GenomeInfoDb)
+
+txdb <- TxDb.Dmelanogaster.UCSC.dm3.ensGene
+seqlevels(txdb)
+##  [1] "chr2L"     "chr2R"     "chr3L"     "chr3R"     "chr4"      "chrX"
+##  [7] "chrU"      "chrM"      "chr2LHet"  "chr2RHet"  "chr3LHet"  "chr3RHet"
+## [13] "chrXHet"   "chrYHet"   "chrUextra"
+
+genomeStyles("Drosophila melanogaster")
+##    circular   sex  auto  NCBI      UCSC                   Ensembl
+## 1     FALSE FALSE  TRUE    2L     chr2L                        2L
+## 2     FALSE FALSE  TRUE    2R     chr2R                        2R
+## 3     FALSE FALSE  TRUE    3L     chr3L                        3L
+## ...
+
+x <- mapSeqlevels(seqlevels(txdb), "Ensembl")
+##     chr2L     chr2R     chr3L     chr3R      chr4      chrX      chrU
+##      "2L"      "2R"      "3L"      "3R"       "4"       "X"      "Un"
+##      chrM  chr2LHet  chr2RHet  chr3LHet  chr3RHet   chrXHet   chrYHet
+##      "MT"   "2LHet"   "2Rhet"   "3LHet"   "3RHet"    "Xhet"    "Yhet"
+## chrUextra
+##        NA
+
+seqlevels(txdb) <- x[seqlevels(txdb)]
+seqlevels(txdb)
+##  [1] "2L"     "2R"     "3L"     "3R"     "4"      "X"
+##  [7] "U"      "M"      "2LHet"  "2RHet"  "3LHet"  "3RHet"
+## [13] "XHet"   "YHet"   "Uextra"
+```
+
+Or even faster, with the same library but all steps implicit:
+
+```R
+seqlevelsStyle(gr) <- "Ensembl"
 ```
 
 ### Converting GTF to GFF3
