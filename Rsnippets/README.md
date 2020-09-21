@@ -1043,6 +1043,8 @@ print(p)
 
 ### Pairs plot (nice)
 
+A version with color density:
+
 ```R
 #' panel.smooth for a pairs() plot
 #' Modified version of the base function panel.smooth, in order to accomodate a
@@ -1076,6 +1078,34 @@ panel.hist <- function(x, ...) {
     rect(breaks[-nB], 0, breaks[-1], y, ...)
 }
 ```
+
+Yet another version, with a regular scatter and the correlation in the lower diagonal, taken from [here](http://www.sthda.com/english/wiki/scatter-plot-matrices-r-base-graphs):
+
+```R
+my_cols <- c("#00AFBB", "#E7B800", "#FC4E07")
+
+# Correlation panel
+panel.cor <- function(x, y){
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r <- round(cor(x, y), digits=2)
+    txt <- paste0("R = ", r)
+    cex.cor <- 0.8/strwidth(txt)
+    text(0.5, 0.5, txt, cex = cex.cor * r)  # text is proportional to the correlations
+}
+
+# Customize upper panel
+upper.panel<-function(x, y){
+  points(x,y, pch = 19, col = my_cols[iris$Species])
+}
+
+# Create the plots
+pairs(iris[,1:4], 
+      lower.panel = panel.cor,
+      upper.panel = upper.panel)
+```
+
+The correlation panel could be integrated into the upper panel, and display the `panel.hist()` instead.
 
 ### Placing multiple plots in the same device
 
