@@ -726,7 +726,8 @@ FDR <- .01
 ##
 ## count reads on exons
 ##
-exonicParts <- disjointExons(makeTxDbFromGFF(GTF))
+exonicParts   <- exonicParts(makeTxDbFromGFF(GTF))
+#intronicParts <- intronicParts(makeTxDbFromGFF(GTF))   # alternatively, one could look at intron retention
 bams <- BamFileList(list.files(paste0(PROJECT, "/mapped"), pattern="_read\\.bam$", full=TRUE),
                     index=character(),              # the BAM index file path
                     asMates=TRUE,                   # records should be paired as mates
