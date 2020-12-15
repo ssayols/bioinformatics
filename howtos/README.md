@@ -17,6 +17,7 @@
    * [MEME](#meme)
    * [rGadem](#rgadem)
 * [Retrieve chromosome sizes](#retrieve-chromosome-sizes)
+* [LiftOver coordinates between different assemblies](#liftover-coordinates-between-different-assemblies)
 * [Submit jobs to random machines in the cluster](#submit-jobs-to-random-machines-in-the-cluster)
 * [Count reads on repetitive regions](#count-reads-on-repetitive-regions)
 * [Quick and dirty, call peaks with MACS2 and SICER](#quick-and-dirty-call-peaks-with-macs2-and-sicer)
@@ -526,6 +527,31 @@ Or:
 ```bash
 $ mysql --user=genome --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from hg19.chromInfo"  > hg19.genome
 ```
+
+## LiftOver coordinates between different assemblies
+
+Basically, use the UCSC utils to convert the bigWig to bedGraph, lifting it over, and back to bigWig.
+
+```bash
+ml kentUtils
+
+# or download them from UCSC's ftp
+# wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64.v287/bigWigToBedGraph
+# wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64.v287/liftOver
+# wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64.v287/bedGraphToBigWig
+
+# get the chain and chr sizes
+wget -qO- http://hgdownload.cse.ucsc.edu/goldenpath/hg18/liftOver/hg18ToHg19.over.chain.gz | gzip -cd > hg19ToHg38.over.chain
+wget https://genome.ucsc.edu/goldenpath/help/hg38.chrom.sizes
+
+# and liftover
+bigWigToBedGraph sample1.hg19.bw sample1.hg19.bedGraph
+liftOver -bedPlus=4 sample1.hg19.bedGraph hg19ToHg38.over.chain sample1.hg38.bedGraph unmapped
+sort -k1,1 -k2,2n sample1.hg38.bedGraph > sample1.hg38.sorted.bedGraph
+bedGraphToBigWig sample1.hg38.sorted.bedGraph hg19.chrom.sizes sample1.hg38.bw
+```
+
+There's on issue that prevents easily lifting over bigWigs, and that's overlapping ranges, which are not allowed. To overcome the issue, [do it in R](https://github.com/ssayols/bioinformatics/tree/master/Rsnippets#liftover-coordinates-between-different-assemblies) using the `rtracklayer` package.
 
 ## Submit jobs to random machines in the cluster
 
