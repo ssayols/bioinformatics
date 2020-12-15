@@ -87,6 +87,7 @@
    * [Permutation test to identify if 2 curves are significantly different](#permutation-test-to-identify-if-2-curves-are-significantly-different)
    * [GenomicRanges](#genomicranges)
    * [Converting seqlevel styles](#converting-seqlevel-styles)
+   * [LiftOver coordinates between different assemblies](#liftover-coordinates-between-different-assemblies)
    * [Converting GTF to GFF3](#converting-gtf-to-gff3)
    * [Flatten a GFF/GTF file by gene_id (and get transcript lengths)](#flatten-a-gffgtf-file-by-gene_id-and-get-transcript-lengths)
    * [Get genome wide distribution of features](#get-genome-wide-distribution-of-features)
@@ -1997,11 +1998,29 @@ seqlevelsStyle(gr) <- "Ensembl"
 
 ### LiftOver coordinates between different assemblies
 
-Use the ''rtracklayer'' package from ''Bioconductor'':
+Use the ''rtracklayer'' package from ''Bioconductor''. Careful about overlapping regions in the converted file: `export.bw` will fail to export the object, and need to be cleared out first.
 
 ```R
 library(rtracklayer)
-export.bw(liftOver(import.bw("sample1.hg19.bw"), import.chain("hg19ToHg38.over.chain")), "sample1.hg38.bw")
+library(BSgenome.Hsapiens.UCSC.hg19)
+library(BSgenome.Hsapiens.UCSC.hg38)
+
+# read
+x.hg19 <- import.bw("sample1.hg19.bw")
+genome(x.hg19) <- genome(BSgenome.Hsapiens.UCSC.hg19)
+
+# convert
+x.hg38 <- unlist(liftOver(x.hg19, import.chain("hg19ToHg38.over.chain")))
+genome(x.hg38)     <- genome(BSgenome.Hsapiens.UCSC.hg38)
+seqlevels(x.hg38)  <- seqlevels(BSgenome.Hsapiens.UCSC.hg38)
+seqlengths(x.hg38) <- seqlengths(BSgenome.Hsapiens.UCSC.hg38)
+
+# drop the overlapping ranges
+hits   <- findOverlaps(x.hg38, drop.self=TRUE)
+x.hg38 <- x.hg38[-queryHits(hits)]
+
+# and export
+export.bw(x.hg38, "sample1.hg38.bw")
 ```
 
 ### Converting GTF to GFF3
