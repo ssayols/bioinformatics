@@ -865,6 +865,17 @@ python $(which rmats.py) \
   --tmp $TMP
 ```
 
+The targets files containing the fastq samples to be processed should be included in 2 files:
+
+```bash
+$ cat rmats_group_aux.txt 
+%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_02_AUX_1.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_02_AUX_1.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_04_AUX_2.R1.fastq:%path%/imb_roukos_2020_13_sant_r naseq_aquarius_04_AUX_2.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_06_AUX_3.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_06_AUX_3.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_08_AUX_4.R1.fastq :%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_08_AUX_4.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_10_AUX_5.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_10_AUX_5.R2.fastq
+$ cat rmats_group_dmso.txt 
+%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_01_DMSO_1.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_01_DMSO_1.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_03_DMSO_2.R1.fastq:%path%/imb_roukos_2020_13_san t_rnaseq_aquarius_03_DMSO_2.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_05_DMSO_3.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_05_DMSO_3.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_07_DMSO_4.R 1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_07_DMSO_4.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_09_DMSO_5.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_09_DMSO_5.R2.fastq
+```
+
+Notice that we use the pattern %path%, that we will later substitute within the script with the $TMP folder (depending whether the job run interactively or in the cluster)
+
 ## Predict genes network with genemania
 
 A bit convoluted to setup. First get the [command line tools jar](http://pages.genemania.org/command-line-tools/). Then, install the [Cytoscape app](http://apps.cytoscape.org/apps/genemania), open Cytoscape and download the network sources for the desired organism (I didn't find any other way to get them from genemania.org). Once downloaded, put them together with the binary (the jar file).
