@@ -25,6 +25,8 @@
    * [SICER](#sicer)
 * [Differential Exon Usage](#differential-exon-usage)
    * [DEXSeq](#dexseq)
+* [Differential splicing analysis](#differential-splicing-analysis)
+   * [rMATS](#rmats)
 * [Predict genes network with genemania](#predict-genes-network-with-genemania)
 * [Annotation of principal isoforms from Biomart](#annotation-of-principal-isoforms-from-biomart)
 * [DGE with limma if raw counts are not available](#dge-with-limma-if-raw-counts-are-not-available)
@@ -825,6 +827,42 @@ counts <- summarizeOverlaps(exonicParts,
                             ignore.strand=FALSE,
                             preprocess.reads=invertStrand, # as suggested in: https://support.bioconductor.org/p/65844/
                             BPPARAM=MulticoreParam(workers=6))
+```
+## Differential splicing analysis
+
+### rMATS
+
+[Quick example](https://github.com/Xinglab/rmats-turbo/#examples), starting from FastQ files (includes mapping with STAR with whatever parameters rMATS likes):
+
+```bash
+#!/bin/bash
+PROJECT="/fsimb/groups/imb-bioinfocf/projects/roukos/imb_roukos_2020_13_sant_rnaseq_aquarius"
+GROUP1="${PROJECT}/scripts/rmats_group_aux.txt"
+GROUP2="${PROJECT}/scripts/rmats_group_dmso.txt"
+STAR_REF="/fsimb/common/genomes/homo_sapiens/gencode/release-26_GRCh38.p10/full/index/star/2.7.3a"
+GENESGTF="/fsimb/common/genomes/homo_sapiens/gencode/release-26_GRCh38.p10/full/annotation/gencode.v26.primary_assembly.annotation.gtf"
+READLENGTH=42
+THREADS=4
+TMP="${PROJECT}/tmp"
+[[ -n $SLURM_JOB_ID ]] && TMP="/jobdir/$SLURM_JOB_ID"
+mkdir -p $TMP
+
+ls ${PROJECT}/rawdata/*.fastq.gz | parallel -j $THREADS "x=\$(basename {}); zcat {} > ${TMP}/\${x%.gz}"
+cat $GROUP1 | sed "s~\%path\%~${TMP}~g" > ${TMP}/$(basename $GROUP1)
+cat $GROUP2 | sed "s~\%path\%~${TMP}~g" > ${TMP}/$(basename $GROUP2)
+
+ml rmats/4.1.0
+python $(which rmats.py) \
+  --s1 ${TMP}/$(basename $GROUP1) \
+  --s2 ${TMP}/$(basename $GROUP2) \
+  --gtf $GENESGTF \
+  --bi $STAR_REF \
+  -t paired \
+  --readLength $READLENGTH \
+  --nthread $THREADS \
+  --tstat $THREADS \
+  --od ${PROJECT}/results/rmats \
+  --tmp $TMP
 ```
 
 ## Predict genes network with genemania
