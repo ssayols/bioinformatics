@@ -1995,6 +1995,15 @@ Or even faster, with the same library but all steps implicit:
 seqlevelsStyle(gr) <- "Ensembl"
 ```
 
+### LiftOver coordinates between different assemblies
+
+Use the ''rtracklayer'' package from ''Bioconductor'':
+
+```R
+library(rtracklayer)
+export.bw(liftOver(import.bw("sample1.hg19.bw"), import.chain("hg19ToHg38.over.chain")), "sample1.hg38.bw")
+```
+
 ### Converting GTF to GFF3
 
 Use the ''rtracklayer'' package from ''Bioconductor'' to convert between GTF <--> GFF formats:
