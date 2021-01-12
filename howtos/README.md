@@ -530,6 +530,17 @@ Or:
 $ mysql --user=genome --host=genome-mysql.cse.ucsc.edu -A -e "select chrom, size from hg19.chromInfo"  > hg19.genome
 ```
 
+Or:
+
+```bash
+$ curl -O http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes
+```
+
+Or:
+```bash
+Rscript -e 'library(BSgenome.Hsapiens.UCSC.hg38); write.table(seqinfo(BSgenome.Hsapiens.UCSC.hg38), col.names=F, quote=F)'
+```
+
 ## LiftOver coordinates between different assemblies
 
 Basically, use the UCSC utils to convert the bigWig to bedGraph, lifting it over, and back to bigWig.
