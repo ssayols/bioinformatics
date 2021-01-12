@@ -41,7 +41,7 @@ To queue it into LSF, the for loop has to be moved into a master script that wil
 * bedtools
 * Picard tools
 * bedGraphToBigWig from the UCSC Genome Browser tools
-* The cromosome sizes, which can be retrieved from the UCSC Genome Browser tools with the fetchChromSizes. Alternatively, samtools idxstats sample.bam | cut -f1-2 > ./chr.sizes
+* The cromosome sizes, which can be retrieved as described [here](#retrieve-chromosome-sizes).
 
 **Source**
 
@@ -235,7 +235,7 @@ This script will loop over the BAM files in a directori, and extend 3'end of the
 
 * bedtools
 * samtools
-* The cromosome sizes, which can be retrieved from the UCSC Genome Browser tools with the fetchChromSizes
+* The cromosome sizes, which can be retrieved as described [](#retrieve-chromosome-sizes).
 
 **Source**
 ```bash
@@ -353,7 +353,7 @@ To queue it into LSF, the for loop has to be moved into a master script that wil
 **Requirements**
 
 * bedGraphToBigWig from the UCSC Genome Browser tools
-* The cromosome sizes, which can be retrieved from the UCSC Genome Browser tools with the fetchChromSizes. Alternatively, samtools idxstats sample.bam | cut -f1-2 > ./chr.sizes
+* The cromosome sizes, which can be retrieved as described [](#retrieve-chromosome-sizes).
 
 **Source**
 
@@ -515,8 +515,11 @@ The chromosome sizes are often used to generate tracks from a bam file.
 
 **Requirements**
 
-* ucsc tools
-* or, alternatively, a mysql client
+* fetchChromSizes from the UCSC tools, or
+* a mysql client, or
+* curl, or
+* R + a BSGenome package, or
+* samtools and a bam file
 
 **Source**
 
@@ -537,8 +540,15 @@ $ curl -O http://hgdownload.soe.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.size
 ```
 
 Or:
+
 ```bash
-Rscript -e 'library(BSgenome.Hsapiens.UCSC.hg38); write.table(seqinfo(BSgenome.Hsapiens.UCSC.hg38), col.names=F, quote=F)'
+Rscript -e 'library(BSgenome.Hsapiens.UCSC.hg38); write.table(seqinfo(BSgenome.Hsapiens.UCSC.hg38), col.names=F, quote=F, sep="\t")' | cut -f1-2 > hg38.chrom.sizes
+```
+
+Or:
+
+```
+samtools idxstats sample.bam | cut -f1-2 > ./chr.sizes
 ```
 
 ## LiftOver coordinates between different assemblies
