@@ -30,6 +30,7 @@
 * [Predict genes network with genemania](#predict-genes-network-with-genemania)
 * [Annotation of principal isoforms from Biomart](#annotation-of-principal-isoforms-from-biomart)
 * [DGE with limma if raw counts are not available](#dge-with-limma-if-raw-counts-are-not-available)
+* [Match a pattern in the genome](#match-a-pattern-in-the-genome)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -991,4 +992,35 @@ If the sequencing depth is reasonably consistent across the RNA samples, then th
 robust approach to differential exis to use limma-trend. This approach will usually work well if the
 ratio of the largest library size to the smallest is not more than about 3-fold.
 In the limma-trend approach, the counts are converted to logCPM values using edgeR’s cpm function
+```
+
+## Match a pattern in the genome
+
+Option 1: using a short read mapper like bowtie:
+
+```sh
+#!/bin/bash
+REF=/fsimb/common/genomes/homo_sapiens/ensembl/grch37/canonical/index/bowtie1/genome
+MOTIF=GCGATCGC
+
+ml bowtie
+bowtie $REF -v 0 -ca $MOTIF | cut -f3-4 | sort -u > asisi.txt
+```
+
+Option2: using Bioconductor
+
+```R
+library(Biostrings)
+library(GenomicRanges)
+library(BSgenome.Hsapiens.UCSC.hg19)
+
+asisi_motif <- "GCGATCGC"
+
+asisi <- do.call(rbind, mclapply(1:24, function(i) {  # loop over chr 1:22+XY
+  m <- matchPattern(asisi_motif, Hsapiens[[i]])
+  data.frame(chr=seqnames(Hsapiens)[i], start=start(m), end=end(m))
+}))
+
+asisi <- makeGRangesFromDataFrame(asisi)
+seqlevelsStyle(asisi) <- "Ensembl"
 ```
