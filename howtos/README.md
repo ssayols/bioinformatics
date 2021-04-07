@@ -31,6 +31,7 @@
 * [Annotation of principal isoforms from Biomart](#annotation-of-principal-isoforms-from-biomart)
 * [DGE with limma if raw counts are not available](#dge-with-limma-if-raw-counts-are-not-available)
 * [Match a pattern in the genome](#match-a-pattern-in-the-genome)
+* [Reverse complement a DNA sequence](#reverse-complement-a-dna-sequence)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -1023,4 +1024,23 @@ asisi <- do.call(rbind, mclapply(1:24, function(i) {  # loop over chr 1:22+XY
 
 asisi <- makeGRangesFromDataFrame(asisi)
 seqlevelsStyle(asisi) <- "Ensembl"
+```
+
+## Reverse complement a DNA sequence
+
+in Perl:
+
+```perl
+sub revcomp {
+  my ($dna) = @_;
+  my $rc = reverse($dna);
+  $rc =~ tr/ABCDGHMNRSTUVWXYabcdghmnrstuvwxy/TVGHCDKNYSAABWXRtvghcdknysaabwxr/;
+  return $rc;
+}
+```
+
+in R:
+
+```R
+chartr("ACTG", "TGAC", paste(rev(unlist(strsplit(s, ""))), collapse=""))
 ```
