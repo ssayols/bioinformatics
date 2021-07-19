@@ -32,6 +32,7 @@
 * [DGE with limma if raw counts are not available](#dge-with-limma-if-raw-counts-are-not-available)
 * [Match a pattern in the genome](#match-a-pattern-in-the-genome)
 * [Reverse complement a DNA sequence](#reverse-complement-a-dna-sequence)
+* [Query the Uniprot Rest API](#query-the-uniprot-rest-api)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -1044,3 +1045,14 @@ in R:
 ```R
 chartr("ACTG", "TGAC", paste(rev(unlist(strsplit(s, ""))), collapse=""))
 ```
+
+## Query the Uniprot Rest API
+
+Retrieving stuff using the [Rest API](https://www.uniprot.org/help/api_queries) provided by Uniprot:
+
+```sh
+wget -qO- 'https://www.uniprot.org/uniprot/?query=reviewed:yes+AND+organism:9606&format=tab&columns=id,entry name,reviewed,protein names,genes,length,genes(PREFERRED),keywords,database(RefSeq),comment(FUNCTION),comment(MISCELLANEOUS),feature(COILED COIL),feature(COMPOSITIONAL BIAS),feature(DOMAIN EXTENT),feature(MOTIF),feature(REGION),feature(REPEAT),feature(ZINC FINGER)' > uniprot.tab
+```
+
+[Full list of available columns](https://www.uniprot.org/help/uniprotkb_column_names).
+
