@@ -2,6 +2,7 @@
 
 * [Convert BAM to BigWig](#convert-bam-to-bigwig)
 * [Convert BAM to BigWig with R](#convert-bam-to-bigwig-with-r)
+* [Strand specific tracks](#strand-specific-tracks)
 * [Convert GTF to BED](#convert-gtf-to-bed)
 * [Deduplicate UMIs](#deduplicate-umis)
 * [Downsample](#downsample)
@@ -78,6 +79,19 @@ rtracklayer::export.bw(con="sample.bw",               ## export to bigwig
     GenomicAlignments::readGAlignments("sample.bam")  ## read in BAM file (use readGAlignmentPairs for paired-end files)
   )
 )
+```
+
+## Strand specific tracks
+
+The trick here's to use `deeptools`'s `bamCoverage` with `--filterRNAstrand` to get only forward/reverse reads into 2 separate tracks. 
+
+```sh
+module load deepTools/3.1.0_debian9
+
+bamCoverage --filterRNAstrand forward --numberOfProcessors 16 --outFileFormat bigwig --binSize 1 --skipNonCoveredRegions --normalizeUsing CPM --bam polyAOligotex.bam -o polyAOligotex.forward.bw &
+bamCoverage --filterRNAstrand reverse --numberOfProcessors 16 --outFileFormat bigwig --binSize 1 --skipNonCoveredRegions --normalizeUsing CPM --bam polyAOligotex.bam -o polyAOligotex.reverse.bw &
+
+wait $(jobs -p)
 ```
 
 ## Convert GTF to BED
