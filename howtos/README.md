@@ -3,6 +3,7 @@
 * [Convert BAM to BigWig](#convert-bam-to-bigwig)
 * [Convert BAM to BigWig with R](#convert-bam-to-bigwig-with-r)
 * [Strand specific tracks](#strand-specific-tracks)
+* [LogFC tracks](#logfc-tracks)
 * [Convert GTF to BED](#convert-gtf-to-bed)
 * [Deduplicate UMIs](#deduplicate-umis)
 * [Downsample](#downsample)
@@ -93,6 +94,29 @@ bamCoverage --filterRNAstrand reverse --numberOfProcessors 16 --outFileFormat bi
 
 wait $(jobs -p)
 ```
+
+## LogFC tracks
+
+Using Bioconductor, simply tile the genome into a number of bins of a specific width, and calculate the log FC:
+
+```R
+bins <- tileGenome(seqinfo(BSgenome.Mmusculus.UCSC.mm10::Mmusculus), tilewidth=1e6, cut.last.tile=TRUE)
+bins <- keepStandardChromosomes(bins, pruning.mode="coarse")
+seqlevelsStyle(bins) <- "UCSC"
+
+sub_igg_bin <- function(ip_file, igg_file) {
+  ip_log2_igg_file <- sub(".bw$", ".1Mbin_log2_igg.bw", ip_file)
+
+  ip  <- binnedAverage(bins, coverage(keepStandardChromosomes(import.bw("ip.bw" , seqinfo=Seqinfo(genome="mm10")), pruning.mode="coarse", "score"))
+  igg <- binnedAverage(bins, coverage(keepStandardChromosomes(import.bw("igg.bw", seqinfo=Seqinfo(genome="mm10")), pruning.mode="coarse", "score"))
+
+  bins$score <- log2(1 + ip$score) - log2(1 + igg$score)
+
+  export.bw(bins, ip_log2_igg_file)
+}
+```
+
+A version at 1-bp resolution (without bins), would be possible simple avoiding the call to `binnedAverage()` and calculating the logFC directly on the `coverage()` objects.
 
 ## Convert GTF to BED
 
