@@ -105,12 +105,18 @@ bins <- keepStandardChromosomes(bins, pruning.mode="coarse")
 seqlevelsStyle(bins) <- "UCSC"
 
 sub_igg_bin <- function(ip_file, igg_file) {
-  ip_log2_igg_file <- sub(".bw$", ".1Mbin_log2_igg.bw", ip_file)
+  ip_log2_igg_file <- sub(".bw$", ".1M_smoothed.log2_igg.bw", ip_file)
 
-  ip  <- binnedAverage(bins, coverage(keepStandardChromosomes(import.bw("ip.bw" , seqinfo=Seqinfo(genome="mm10")), pruning.mode="coarse", "score"))
-  igg <- binnedAverage(bins, coverage(keepStandardChromosomes(import.bw("igg.bw", seqinfo=Seqinfo(genome="mm10")), pruning.mode="coarse", "score"))
+  # read tracks
+  ip  <- keepStandardChromosomes(coverage(import.bw(file.path("tracks/filtered", ip_file )), weight="score"))
+  igg <- keepStandardChromosomes(coverage(import.bw(file.path("tracks/filtered", igg_file)), weight="score"))
+  
+  # smooth
+  ip  <- binnedAverage(bins, ip , "score")$score
+  igg <- binnedAverage(bins, igg, "score")$score
 
-  bins$score <- log2(1 + ip$score) - log2(1 + igg$score)
+  # calculate ratio adding 1e-6 as pseudocount
+  bins$score <- log2(1e-6 + ip) - log2(1e-6 + igg)
 
   export.bw(bins, ip_log2_igg_file)
 }
