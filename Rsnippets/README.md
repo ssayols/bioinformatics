@@ -36,7 +36,7 @@
    * [Gviz plots](#gviz-plots)
    * [Circos plots](#circos-plots)
    * [Graphical representation of contingency tables](#graphical-representation-of-contingency-tables)
-   * [ChIPseq plots](#chipseq-plots)
+   * [Sequence motif](#sequence-motif)
 * [Miscellaneous bioinformatic related stuff](#miscellaneous-bioinformatic-related-stuff)
    * [Barcode design](#barcode-design)
    * [Getting things from Biomart](#getting-things-from-biomart)
@@ -992,9 +992,17 @@ mosaicplot(t(m), color=TRUE, main="contingency table", sub=main)
 assocplot(m, main="deviation from independence of\ncpg islands and ZBTB48 targets")
 ```
 
-### ChIPseq plots
+### Sequence motif
+Conventional motifs can be computed using the [motifStack](https://bioconductor.org/packages/release/bioc/html/motifStack.html) package. Arbitrary motifs (that use arbitrary numbers instead of PCM, PWM, ICM, etc.) can be plotted using [ggseqlogo](https://omarwagih.github.io/ggseqlogo/):
 
-See the section [Plots](#plots) for specific ChIP-seq plots.
+```R
+# Create a custom matrix 
+set.seed(123)
+custom_mat = matrix( rnorm(20), nrow=4, dimnames=list(c('A', 'T', 'G', 'C')))
+
+# Generate sequence logo
+ggseqlogo(custom_mat, method='custom', seq_type='dna') + ylab('my custom height')
+```
 
 ## Miscellaneous bioinformatic related stuff
 
