@@ -619,7 +619,7 @@ Otherwise, one can calculate overlaps with `GenomicRanges` and manually plot wit
 ```R
 library(venneuler)
 
-x <- c(peaks1, peaks2)
+x <- reduce(c(peaks1, peaks2))   # common+unique peakset
 x$peaks1 <- x %over% peaks1
 x$peaks2 <- x %over% peaks2
 
