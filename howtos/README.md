@@ -35,6 +35,7 @@
 * [Match a pattern in the genome](#match-a-pattern-in-the-genome)
 * [Reverse complement a DNA sequence](#reverse-complement-a-dna-sequence)
 * [Query the Uniprot Rest API](#query-the-uniprot-rest-api)
+* [Calculate best primers using melting temperature](#calculate-best-primers-using-melting-temperature)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -1100,3 +1101,72 @@ wget -qO- 'https://www.uniprot.org/uniprot/?query=reviewed:yes+AND+organism:9606
 
 [Full list of available columns](https://www.uniprot.org/help/uniprotkb_column_names).
 
+## Calculate best primers using melting temperature
+
+```R
+##############################
+##
+## Do primers from a multifasta file
+##
+## 1-read multifasta file
+## 2-loop, for every sequence:
+##   2.1-take n=MINNUC from 5'. Take n=n+1 until TM(seq_n) > TM
+##   2.2-take n=MINNUC from 3'. Take n=n+1 until TM(RC(seq_n)) > TM
+##   2.3-output: name;primer_5';TM_5';primer_3';TM_3'
+##
+## TM=4*(C+G)+2*(A+T)
+##
+##############################
+library("ShortRead")
+FASTA <- "feat.fasta"   # input file with gene sequences
+MINL  <- 15
+TM    <- 58
+OUT   <- "doprim.csv"   # output file with primers
+
+## 1-read multifasta file
+fasta <- readFasta(FASTA)
+
+# calculate melting temperature
+tm <- function(s) {
+
+        nC <- length(gregexpr("C",s)[[1]])
+        nG <- length(gregexpr("G",s)[[1]])
+        nA <- length(gregexpr("A",s)[[1]])
+        nT <- length(gregexpr("T",s)[[1]])
+
+        return(4*(nC+nG)+2*(nA+nT))
+}
+
+# calculate reverse complimentary
+RC <- function(s) {
+        chartr("ACTG","TGAC",paste(rev(unlist(strsplit(s,""))),collapse=""))
+}
+
+## 2-loop, for every sequencia:
+for(i in 1:length(fasta)) {
+
+        s <- as.character(sread(fasta[i]))      # sequence
+        x <- as.character(id(fasta[i]))         # id
+
+        ##   2.1-take n=MINNUC from 5'. Take n=n+1 until TM(seq_n) > TM
+        n  <- MINL
+        t5 <- 0
+        while(t5 < TM) {
+                s5 <- substr(s,1,n)
+                t5 <- tm(s5)
+                n  <- n + 1
+        }
+
+        ##   2.2-take n=MINNUC from 3'. Take n=n+1 until TM(RC(seq_n)) > TM
+        n  <- MINL
+        t3 <- 0
+        while(t3 < TM) {
+                s3 <- RC(substr(s,nchar(s) - n,nchar(s)))       # idem, but Reverse Complimentary
+                t3 <- tm(s3)
+                n  <- n + 1
+        }
+
+        ##   2.3-output: name;primer_5';TM_5';primer_3';TM_3'
+        cat(paste(x,s5,t5,nchar(s5),s3,t3,nchar(s3),s,sep=";"),file=OUT,fill=T,append=T)
+}
+```
