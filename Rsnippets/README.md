@@ -75,6 +75,7 @@
    * [Get transcripts from a Bioconductor's AnnotationDb](#get-transcripts-from-a-bioconductors-annotationdb)
    * [Get information of genomic features](#get-information-of-genomic-features)
    * [Convert BAM to BigWig](#convert-bam-to-bigwig)
+   * [Shannon index for the nt diversity of a sequence](#shannon-index-for-the-nt-diversity-of-a-sequence)
 * [Statistical analysis](#statistical-analysis)
    * [Principal Component Analysis (PCA)](#principal-component-analysis-pca)
    * [High Level PCA](#hihg-level-pca)
@@ -2176,6 +2177,24 @@ rtracklayer::export.bw(
     GenomicAlignments::readGAlignments("sample.bam")  # read in BAM file (use readGAlignmentPairs for paired-end files)
   ), con="sample.bw"                                  # export to bigwig
 )
+```
+
+### Shannon index for the nt diversity of a sequence
+In the Shannon index, p is the proportion (n/N) of individuals of one 
+particular species found (n) divided by the total number of individuals found 
+(N), and s is the number of species.
+
+It is calculated as:
+
+$$ Shannon Index (H) = - \sum_{i=1}^{s} p_{i} \ln p_{i} $$
+
+It can be easilly adjusted to sequence analysis, by assuming $N=\{A, C, T, G\}$.
+
+```R
+shannon <- function(s, a=c("A", "C", "G", "T")) {
+  s <- unlist(strsplit(s, ""))
+  sum(sapply(a, function(a) { p <- sum(s == a) / length(s); p * log(p) }))
+}
 ```
 
 ## Statistical analysis
