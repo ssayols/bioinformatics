@@ -2188,12 +2188,12 @@ It is calculated as:
 
 $$ Shannon Index (H) = - \sum_{i=1}^{s} p_{i} \ln p_{i} $$
 
-It can be easilly adjusted to sequence analysis, by assuming $N=\{A, C, T, G\}$.
+It can be easilly adjusted to sequence analysis, by assuming the alphabet $s=\{A, C, T, G\}$.
 
 ```R
-shannon <- function(s, a=c("A", "C", "G", "T")) {
-  s <- unlist(strsplit(s, ""))
-  -sum(sapply(a, function(a) { p <- sum(s == a) / length(s); p * log(p) }), na.rm=TRUE)
+shannon <- function(x, s=c("A", "C", "G", "T")) {
+  x <- unlist(strsplit(x, ""))
+  -sum(sapply(s, function(s) { p <- sum(x == s) / length(x); p * log(p) }), na.rm=TRUE)
 }
 ```
 
