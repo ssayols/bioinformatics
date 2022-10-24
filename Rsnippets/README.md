@@ -2193,7 +2193,7 @@ It can be easilly adjusted to sequence analysis, by assuming $N=\{A, C, T, G\}$.
 ```R
 shannon <- function(s, a=c("A", "C", "G", "T")) {
   s <- unlist(strsplit(s, ""))
-  sum(sapply(a, function(a) { p <- sum(s == a) / length(s); p * log(p) }))
+  -sum(sapply(a, function(a) { p <- sum(s == a) / length(s); p * log(p) }), na.rm=TRUE)
 }
 ```
 
