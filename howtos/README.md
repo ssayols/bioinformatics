@@ -36,7 +36,7 @@
 * [Reverse complement a DNA sequence](#reverse-complement-a-dna-sequence)
 * [Query the Uniprot Rest API](#query-the-uniprot-rest-api)
 * [Calculate best primers using melting temperature](#calculate-best-primers-using-melting-temperature)
-* [Broad Institute GSEA](#broad-institute-gsea]
+* [Broad Institute GSEA](#broad-institute-gsea)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
