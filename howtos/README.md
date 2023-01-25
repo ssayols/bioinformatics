@@ -36,6 +36,7 @@
 * [Reverse complement a DNA sequence](#reverse-complement-a-dna-sequence)
 * [Query the Uniprot Rest API](#query-the-uniprot-rest-api)
 * [Calculate best primers using melting temperature](#calculate-best-primers-using-melting-temperature)
+* [Broad Institute GSEA](#broad-institute-gsea]
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -1169,4 +1170,62 @@ for(i in 1:length(fasta)) {
         ##   2.3-output: name;primer_5';TM_5';primer_3';TM_3'
         cat(paste(x,s5,t5,nchar(s5),s3,t3,nchar(s3),s,sep=";"),file=OUT,fill=T,append=T)
 }
+```
+
+## Broad Institute GSEA
+Command line gene set enrichment analysis (GSEAPreranked test) using Broad's software and datasets.
+
+```bash
+#!/bin/bash
+
+export PROJECT=/fsimb/groups/imb-bioinfocf/projects/sfb/kraemer/sfb_kraemer_2021_01_dzulko_pr130_RNAseq
+
+[ -d ${PROJECT}/tmp ] || mkdir -p ${PROJECT}/tmp
+[ -d ${PROJECT}/bin/gsea ] || mkdir -p ${PROJECT}/bin/gsea
+[ -d ${PROJECT}/ref/gsea ] || mkdir -p ${PROJECT}/ref/gsea
+[ -d ${PROJECT}/results/gsea ] || mkdir -p ${PROJECT}/results/gsea
+
+# download gsea software
+BIN=${PROJECT}/bin/gsea/GSEA_Linux_4.2.1
+if [ ! -d ${BIN} ]; then
+  wget -qO- https://data.broadinstitute.org/gsea-msigdb/gsea/software/desktop/4.2/GSEA_Linux_4.2.1.zip > ${PROJECT}/bin/gsea/GSEA_Linux_4.2.1.zip
+  unzip ${PROJECT}/bin/gsea/GSEA_Linux_4.2.1.zip -d ${PROJECT}/bin/gsea/ && rm ${PROJECT}/bin/gsea/GSEA_Linux_4.2.1.zip
+fi
+
+# download msigdb relevant datasets
+[ -e ${PROJECT}/ref/gsea/h_all_v7.5_symbols.gmt ] || wget -qO- https://data.broadinstitute.org/gsea-msigdb/msigdb/release/7.5/h.all.v7.5.symbols.gmt > ${PROJECT}/ref/gsea/h_all_v7.5_symbols.gmt
+[ -e ${PROJECT}/ref/gsea/c2_cp_kegg_v7.5_symbols.gmt ] || wget -qO- https://data.broadinstitute.org/gsea-msigdb/msigdb/release/7.5/c2.cp.kegg.v7.5.symbols.gmt > ${PROJECT}/ref/gsea/c2_cp_kegg_v7.5_symbols.gmt
+[ -e ${PROJECT}/ref/gsea/c2_cp_reactome_v7.5_symbols.gmt ] || wget -qO- https://data.broadinstitute.org/gsea-msigdb/msigdb/release/7.5/c2.cp.reactome.v7.5.symbols.gmt > ${PROJECT}/ref/gsea/c2_cp_reactome_v7.5_symbols.gmt
+[ -e ${PROJECT}/ref/gsea/c5_go_bp_v7.5_symbols.gmt ] || wget -qO- https://data.broadinstitute.org/gsea-msigdb/msigdb/release/7.5/c5.go.bp.v7.5.symbols.gmt > ${PROJECT}/ref/gsea/c5_go_bp_v7.5_symbols.gmt
+
+echo ${PROJECT}/ref/gsea/h_all_v7.5_symbols.gmt > ${PROJECT}/tmp/gene_sets.txt
+echo ${PROJECT}/ref/gsea/c2_cp_kegg_v7.5_symbols.gmt >> ${PROJECT}/tmp/gene_sets.txt
+echo ${PROJECT}/ref/gsea/c2_cp_reactome_v7.5_symbols.gmt >> ${PROJECT}/tmp/gene_sets.txt
+echo ${PROJECT}/ref/gsea/c5_go_bp_v7.5_symbols.gmt >> ${PROJECT}/tmp/gene_sets.txt
+
+# run gsea on different contrasts
+process() {
+  contrast_name=$1
+  in=${PROJECT}/results/DE_DESeq2/${contrast_name}.csv
+  out=${PROJECT}/results/gsea/${contrast_name}
+
+  # read DE results from that contrast, and extract gene_symbol+log2FC
+  tail -n +2 $in | cut -f2,8 -d, | grep -v 'NA$' | tr , "\t" | sed 's/"//g' > ${PROJECT}/tmp/${contrast_name}.rnk
+  # run Broad's GSEA software
+  ${BIN}/gsea-cli.sh GSEAPreranked -rnk ${PROJECT}/tmp/${contrast_name}.rnk -gmx_list ${PROJECT}/tmp/gene_sets.txt -out $out -rpt_label ${contrast_name}
+  # tidy up results folder
+  mv ${out}/*/* $out
+  mkdir -p ${out}/img
+  mv ${out}/*.png ${out}/img
+  mkdir -p ${out}/tables
+  mv ${out}/*.tsv ${out}/tables
+  sed -i "s/src='/src='img\//g" ${out}/*.html
+}
+export -f process
+
+tail -n +2 ${PROJECT}/contrasts.txt | while read contrast_name contrast mmatrix; do
+  process $contrast_name &
+done
+
+wait $(jobs -p)
 ```
