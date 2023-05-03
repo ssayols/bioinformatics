@@ -78,7 +78,7 @@
    * [Shannon index for the nt diversity of a sequence](#shannon-index-for-the-nt-diversity-of-a-sequence)
 * [Statistical analysis](#statistical-analysis)
    * [Principal Component Analysis (PCA)](#principal-component-analysis-pca)
-   * [High Level PCA](#hihg-level-pca)
+   * [High Level PCA](#high-level-pca)
    * [Project a new vector onto PCA space](#project-a-new-vector-onto-pca-space)
    * [Multidimensional Scaling (MDS)](#multidimensional-scaling-mds)
    * [Affinity Propagation Clustering](#affinity-propagation-clustering)
@@ -96,6 +96,7 @@
    * [Network analysis](#network-analysis)
    * [Split data for CV](#split-data-for-cv)
    * [Compute PI-value based on FC and p-value ](#compute-pi-value-based-on-fc-and-p-value)
+   * [Gini index](gini-index)
 * [Other stuff that doesn't fit into any other category](#other-stuff-that-doesnt-fit-into-any-other-category)
    * [Supercomputing](#supercomputing)
    * [Parse arguments](#parse-arguments)
@@ -2600,6 +2601,22 @@ REF: https://academic.oup.com/bioinformatics/article-lookup/doi/10.1093/bioinfor
 PIscore <- function(pval, log2fc) {
   list(score=log2fc * -log10(pval),   # the score
        pval =pval ^ log2fc)           # the transformed pval derived from the new score
+}
+```
+
+### Gini index
+
+Gini index is a measure to quantify inequality. It's widely used in 
+economics. I've succesfully used it in similar cases as the Shannon index, but 
+specially for numerical sequences. More details in the [wiki page](https://en.wikipedia.org/wiki/Gini_coefficient).
+
+It is calculated as:
+
+$$ Gini Index (G) = \frac{ \sum_{i=1}^{n} \sum_{j=1}^{n} |x_i - x_j| }{ 2n^2\bar{x} }$$
+
+```R
+gini <- function(x) {
+  sum(sapply(1:length(x), function(i) sum(abs(x[i] - x)))) / (2 * length(x)^2* mean(x))
 }
 ```
 
