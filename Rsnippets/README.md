@@ -532,11 +532,11 @@ require(VennDiagram)
 # function will calculate overlap between the vectors and produce proportional Venn diagrams.
 
 venn.diagram(list(C = 1700:2500, B = 1:1800, A = 1571:2020),
-  fill=RColorBrewer::brewer.pal(3, "Set1"), alpha=.3, lwd=0, cex=1.5, cat.cex=1.5,
-  filename="~/Desktop/test2.tif")
+             fill=palette()[1:3], lwd=0, cex=1.5, cat.cex=1.5,
+             filename="~/test.tiff")
 
 # display it on the screen
-img <- tiff::readTIFF("~/Desktop/test2.tif", native=T)
+img <- tiff::readTIFF("~/test.tiff", native=T)
 plot(1:2, type="n", bty="n", axes=F, xlab="", ylab="")
 rasterImage(img, 1, 1, 2, 2)
 ```
@@ -545,7 +545,7 @@ To display it on the screen, alternatively one can set to 'filename' to NULL and
 
 ```R
 img <- venn.diagram(list(C = 1700:2500, B = 1:1800, A = 1571:2020),
-  fill=RColorBrewer::brewer.pal(3, "Set1"), alpha=.3, lwd=0, cex=1.5, cat.cex=1.5, filename=NULL)
+                    fill=palette()[1:3], lwd=0, cex=1.5, cat.cex=1.5, filename=NULL)
 grid.draw(img)
 ```
 
