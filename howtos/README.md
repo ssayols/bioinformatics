@@ -37,6 +37,7 @@
 * [Query the Uniprot Rest API](#query-the-uniprot-rest-api)
 * [Calculate best primers using melting temperature](#calculate-best-primers-using-melting-temperature)
 * [Broad Institute GSEA](#broad-institute-gsea)
+* [Problematic and blacklisted regions from UCSC](#problematic-and-blacklisted-regions-from-UCSC)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -1229,3 +1230,46 @@ done
 
 wait $(jobs -p)
 ```
+
+## Problematic and blacklisted regions from UCSC
+
+Annotate problematic regions using info from UCSC tables (instead of using ENCODE's blacklisted regions from [Boyle-Lab](https://github.com/Boyle-Lab/Blacklist/tree/master/lists)).
+The advantage of UCSC is that they have sub-tracks with other sources of problems, namely:
+
+* The UCSC Unusual Regions subtrack contains annotations collected at UCSC, put together from other tracks, our experiences and support email list requests over the years. For example, it contains the most well-known gene clusters (IGH, IGL, PAR1/2, TCRA, TCRB, etc) and annotations for the GRC fixed sequences, alternate haplotypes, unplaced contigs, pseudo-autosomal regions, and mitochondria. These loci can yield alignments with low-quality mapping scores and discordant read pairs, especially for short-read sequencing data. This data set was manually curated, based on the Genome Browser's assembly description, the FAQs about assembly, and the NCBI RefSeq "other" annotations track data.
+* The ENCODE Blacklist subtrack contains a comprehensive set of regions which are troublesome for high-throughput Next-Generation Sequencing (NGS) aligners. These regions tend to have a very high ratio of multi-mapping to unique mapping reads and high variance in mappability due to repetitive elements such as satellite, centromeric and telomeric repeats.
+*The GRC Exclusions subtrack contains a set of regions that have been flagged by the GRC to contain false duplications or contamination sequences. The GRC has now removed these sequences from the files that it uses to generate the reference assembly, however, removing the sequences from the GRCh38/hg38 assembly would trigger the next major release of the human assembly. In order to help users recognize these regions and avoid them in their analyses, the GRC have produced a masking file to be used as a companion to GRCh38, and the BED file is available from the GenBank FTP site.
+
+Additionally one can add other genomic features, like centromeres/telomeres from the `gap` table.
+
+Here is the R code used to annotate a GRanges object with such regions:
+
+```R
+library(rtracklayer)
+
+# retrieve coordinates of problematic regions
+session <- browserSession("UCSC")
+#track.names <- trackNames(ucscTableQuery(session))
+#table.names <- ucscTables("hg38", track.names[grepl("problematic", track.names)])
+#table.names <- ucscTables("hg38", track.names[grepl("gap", track.names)])
+ucsc_unusual_regions <- keepStandardChromosomes(track(ucscTableQuery(session, table="comments")), pruning.mode="coarse")
+encBlacklist         <- keepStandardChromosomes(track(ucscTableQuery(session, table="encBlacklist")), pruning.mode="coarse")
+grcExclusions        <- keepStandardChromosomes(track(ucscTableQuery(session, table="grcExclusions")), pruning.mode="coarse")
+gap                  <- keepStandardChromosomes(track(ucscTableQuery(session, table="gap")), pruning.mode="coarse")
+
+# annotate with the following preference: ucsc_unusual_regions, encBlacklist, grcExclusions, gap (centro/telo)
+guide_xls <- "GUIDEseq_Lazzarotto2020NBT.xlsx"
+guide <- makeGRangesFromDataFrame(as.data.frame(read_xlsx(guide_xls)), keep=TRUE)
+guide <- unstrand(guide)
+
+guide$region_annotation <- ""
+i <- findOverlaps(guide, ucsc_unusual_regions)
+guide$region_annotation[queryHits(i)] <- ucsc_unusual_regions$name[subjectHits(i)]
+i <- findOverlaps(guide, encBlacklist)
+guide$region_annotation[queryHits(i)] <- encBlacklist$name[subjectHits(i)]
+i <- findOverlaps(guide, grcExclusions)
+guide$region_annotation[queryHits(i)] <- grcExclusions$name[subjectHits(i)]
+i <- findOverlaps(guide, gap)
+guide$region_annotation[queryHits(i)] <- gap$type[subjectHits(i)]
+```
+
