@@ -1161,6 +1161,8 @@ tbl.k562.dgf.e2f3 <- getTable(ucscTableQuery(mySession, track=track.name, range=
 tbl.k562.dgf.hg19 <- getTable(ucscTableQuery(mySession, track=track.name, table=table.name))
 ```
 
+An up-to-date and perhaps better example can be found in the [Howto's section](https://github.com/ssayols/bioinformatics/tree/master/howtos#problematic-and-blacklisted-regions-from-UCSC).
+
 ### Drug response curves using the ''drc'' package
 
 ```R
