@@ -24,6 +24,7 @@
 * [Calculate best primers using melting temperature](#calculate-best-primers-using-melting-temperature)
 * [Broad Institute GSEA](#broad-institute-gsea)
 * [Problematic and blacklisted regions from UCSC](#problematic-and-blacklisted-regions-from-UCSC)
+* [Signal summary around regions of interest](#signal-summary-around-regions-of-interest)
 
 ## Convert BAM to BigWig
 This script will loop over the BAM files in a directori, and convert them to BigWig files or visualization in Genome Browsers.
@@ -817,4 +818,45 @@ guide$region_annotation[queryHits(i)] <- grcExclusions$name[subjectHits(i)]
 i <- findOverlaps(guide, gap)
 guide$region_annotation[queryHits(i)] <- gap$type[subjectHits(i)]
 ```
+
+## Signal summary around regions of interest
+
+A binnedAverage() like function, more general, in a way that it could compute more than just the mean:
+
+```R
+binnedView <- function(bins, numvar, varname, na.rm=FALSE, fun=IRanges::viewMeans) {
+    if (!is(bins, "GRanges"))
+        stop("'x' must be a GRanges object")
+    if (!is(numvar, "RleList"))
+        stop("'numvar' must be an RleList object")
+    if (!identical(seqlevels(bins), names(numvar)))
+        stop("'seqlevels(bin)' and 'names(numvar)' must be identical")
+    fun2 <- function(v, na.rm = FALSE) {
+        if (!isTRUEorFALSE(na.rm))
+            stop("'na.rm' must be TRUE or FALSE")
+        result <- fun(v, na.rm = na.rm)
+        w0 <- width(v)
+        v1 <- trim(v)
+        w1 <- width(v1)
+        if (na.rm) {
+            na_count <- sum(is.na(v1))
+            w0 <- w0 - na_count
+            w1 <- w1 - na_count
+        }
+        result <- result * w1/w0
+        result[w0 != 0L & w1 == 0L] <- 0
+        result
+    }
+    bins_per_chrom <- split(ranges(bins), seqnames(bins))
+    result_list <- lapply(names(numvar), function(seqname) {
+        v <- Views(numvar[[seqname]], bins_per_chrom[[seqname]])
+        fun2(v, na.rm = na.rm)
+    })
+    new_mcol <- unsplit(result_list, as.factor(seqnames(bins)))
+    mcols(bins)[[varname]] <- new_mcol
+    bins
+}
+```
+
+See the [issue](https://github.com/Bioconductor/GenomicRanges/issues/77) filled in GenomicRange's Github repo.
 
