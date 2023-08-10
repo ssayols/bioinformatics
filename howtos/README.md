@@ -10,28 +10,14 @@
    * [Fastq](#fastq)
    * [BAM](#bam)
    * [BAM (other)](#bam-other)
-* [Extend reads for ChIP/MBD](#extend-reads-for-chipmbd)
-* [Generate a STAR index](#generate-a-star-index)
 * [Merge BAM files](#merge-bam-files)
 * [Merge BigWig tracks](#merge-bigwig-tracks)
-* [MISO for isoform quantification](#miso-for-isoform-quantification)
-* [Motif discovery](#motif-discovery)
-   * [MEME](#meme)
-   * [rGadem](#rgadem)
 * [Retrieve chromosome sizes](#retrieve-chromosome-sizes)
 * [LiftOver coordinates between different assemblies](#liftover-coordinates-between-different-assemblies)
 * [Submit jobs to random machines in the cluster](#submit-jobs-to-random-machines-in-the-cluster)
 * [Count reads on repetitive regions](#count-reads-on-repetitive-regions)
-* [Quick and dirty, call peaks with MACS2 and SICER](#quick-and-dirty-call-peaks-with-macs2-and-sicer)
-   * [MACS2](#macs2)
-   * [SICER](#sicer)
-* [Differential Exon Usage](#differential-exon-usage)
-   * [DEXSeq](#dexseq)
-* [Differential splicing analysis](#differential-splicing-analysis)
-   * [rMATS](#rmats)
 * [Predict genes network with genemania](#predict-genes-network-with-genemania)
 * [Annotation of principal isoforms from Biomart](#annotation-of-principal-isoforms-from-biomart)
-* [DGE with limma if raw counts are not available](#dge-with-limma-if-raw-counts-are-not-available)
 * [Match a pattern in the genome](#match-a-pattern-in-the-genome)
 * [Reverse complement a DNA sequence](#reverse-complement-a-dna-sequence)
 * [Query the Uniprot Rest API](#query-the-uniprot-rest-api)
@@ -277,65 +263,6 @@ for f in ../rawdata/*.sortedByName.out.markDups.bam; do
 done
 ```
 
-## Extend reads for ChIP/MBD
-
-This script will loop over the BAM files in a directori, and extend 3'end of the reads for $1 bp in order to match the average library's insert size and improve the peak calling.
-
-**Requirements**
-
-* bedtools
-* samtools
-* The cromosome sizes, which can be retrieved as described [](#retrieve-chromosome-sizes).
-
-**Source**
-```bash
-#!/bin/bash
-SIZE=$1
-BASEDIR=./mapped
-EXEC=/opt
-REF=./mm9.chrom.sizes
-
-for f in ${BASEDIR}/*.bam
-do
-  F=$(basename $f)
-
-  # 1: bam2bed
-  # 2: extend 51bp reads to average fragment size 180bp (slopBED)
-  # 3: bed2bam
-  # 4: samtools sort bam
-  # 5: index bam
-  echo "${EXEC}/BEDTools/latest/bin/bedtools bamtobed -split -i ${BASEDIR}/${F} | \
-        ${EXEC}/BEDTools/latest/bin/bedtools slop -g ${REF} -l 0 -r ${SIZE} -s | \
-        ${EXEC}/BEDTools/latest/bin/bedtools bedtobam -ubam -g ${REF} | \
-        ${EXEC}/samtools/latest/samtools sort - ${F%.bam}_ext && \
-        ${EXEC}/samtools/latest/samtools index ${F%.bam}_ext.bam" | \
-  bsub -J ${F%.bam} -o ${F%.bam}_ext.log -cwd $(pwd) -W 2:00 -n 1 -q "testing"
-done
-```
-
-## Generate a STAR index
-
-This is the STAR command to generate an index file from a fasta reference:
-
-```bash
-    STAR --runMode genomeGenerate  \
-         --genomeDir ./  \
-         --genomeFastaFiles /igenomes_reference/Homo_sapiens/UCSC/hg19/Sequence/WholeGenomeFasta/genome.fa \
-         --runThreadN 12 \
-         --sjdbGTFfile /igenomes_reference/Homo_sapiens/UCSC/hg19/Annotation/Genes/genes.gtf \
-         --sjdbOverhang 50
-```
-
-Newer versions of STAR (since 2.4.x) can produce indexes without the read length parameter while generating the index. Though it has to be supplied when running STAR alignment.
-
-```bash
-    STAR --runMode genomeGenerate     \
-         --genomeDir ${INDEXFOLDER}   \
-         --genomeFastaFiles ${GENOME} \
-         --runThreadN ${THREADS}      \
-         --outTmpDir ${TMPDIR}/indexing/
-```
-
 ## Merge BAM files
 
 This script takes the BAM files from several replicates and merges them together.
@@ -403,7 +330,7 @@ To queue it into LSF, the for loop has to be moved into a master script that wil
 **Requirements**
 
 * bedGraphToBigWig from the UCSC Genome Browser tools
-* The cromosome sizes, which can be retrieved as described [](#retrieve-chromosome-sizes).
+* The cromosome sizes, which can be retrieved as described [here](#retrieve-chromosome-sizes).
 
 **Source**
 
@@ -429,132 +356,6 @@ for SAMPLE in ${SAMPLES[@]}; do
         | LC_COLLATE=C sort -k1,1 -k2,2n > ${OUT}.bed
     ${UCSC}/bedGraphToBigWig ${OUT}.bed $CHRSIZES ${OUT}.bw && rm ${OUT}.bed
 done
-```
-
-## MISO for isoform quantification
-
-[http://miso.readthedocs.org/en/fastmiso/ MISO] can be used to estimate isoform quantification. It's reported to do a bad job, use it at your own risk!
-
-**Requirements**
-
-* A GFF3 file with the gene annotation. There is extensive documentation in the MISO webpage on how to create your own from UCSC or Ensembl. I usually download directly the GFF version from [http://www.ensembl.org/info/data/ftp/index.html Ensembl] . Older assemblies from Ensembl do not provide GFF gene models; in this case, I download the GTF file and convert it to GFF with the [http://www.sequenceontology.org/software/GAL.html GAL] library.
-* Sorted+indexed BAM files
-
-**index the GFF file**
-
-From the MISO suite, run the index_gff tool on the GFF3 file:
-
-```bash
-ssayolsp@annotation$ index_gff --index Drosophila_melanogaster.BDGP6.83.gff3 indexed/
-```
-
-**Run MISO**
-```bash
-#!/bin/bash
-PROJECT=/project/xxx
-ANNOTATION=${PROJECT}/annotation/indexed.BDGP6.83.gff3
-CORES=8
-READLEN=36
-
-for f in ${PROJECT}/mapped/*.sorted.bam; do
-    F=$(basename $f)
-    F=${F%_accepted_hits.sorted.bam}
-    OUT=${PROJECT}/results/isoform-quantification/${F}
-
-    L1="source /opt/miso/latest/env.sh" 
-    L2="miso --run $ANNOTATION $f --output-dir $OUT --read-len $READLEN -p $CORES"
-    L3="miso_pack --pack $OUT"
-    L4="summarize_miso --summarize-samples $OUT $OUT"
-    echo "$L1 && $L2 && $L3 && $L4" | bsub -q short -W 5:00 -R "span[ptile=${CORES}]" -n ${CORES} -app Reserve1G -J miso_${F} -o miso_${F}.out -e miso_${F}.err
-done
-```
-
-**Parse results**
-```perl
-#!/bin/perl
-# output a 3 column file with gene-transcript-counts columns
-# use: $ cat file.miso_summary | perl this_script.pl > file.parsed.miso
-while(<>) {
-
-    chomp;
-
-    # split and get gene, isoforms and counts per isoform
-    my @l = split /\t/;
-    my $g = $l[0];
-    my $t = $l[4];
-    my $q = $l[6];
-
-    # split isoforms and counts, and get a unique name for the isoform
-    my @t = split /,/,$t;
-    my @q = split /,/,$q;
-
-    # print registers
-    for (my $i=0; $i < scalar @t; $i++) {
-        my @ct = $t[$i] =~ m/(FBtr\d+)/;
-        my @cq = $q[$i] =~ m/.+:(\d+)/;
-        print $g, "\t", $ct[0], "\t", $cq[0], "\n";
-    }
-}
-```
-
-**Compress MISO output folders**
-
-After summarization, save space by compressing the output folders:
-
-```bash
-ssayolsp@results$ miso_zip --compress mydata.misozip miso_output/
-```
-
-The process can be reverted:
-
-```bash
-ssayolsp@results$ miso_zip --uncompress mydata.misozip uncompressed/
-```
-
-## Motif discovery
-
-### MEME
-
-```bash
-#!/bin/bash
-# run meme-chip with the same arguments as calling it from the http://meme-suite.org/
-PROJECT=/projects/xxx
-OUTDIR=${PROJECT}/GSE51142/results/meme
-INDIR=${PROJECT}/GSE51142/results/macs2
-BEDTOOLS=/opt/BEDTools/latest/bin/bedtools
-MEME=/opt/meme/latest/bin/meme-chip
-REF=/igenomes/homo_sapiens/ensembl/grch38/canonical/genome/Homo_sapiens.GRCh38.dna.primary_assembly.fa
-MEMEHUMANDB=/opt/meme/motif_databases/HUMAN/HOCOMOCOv10_HUMAN_mono_meme_format.meme
-MEMEJASPARDB=/opt/meme/motif_databases/JASPAR/JASPAR_CORE_2016_vertebrates.meme
-
-for f in ${INDIR}/*.narrowPeak; do
-    if [ ! -e $OUTDIR ]; then
-        mkdir $OUTDIR
-    fi
-    if [ ! -e ${f}.fasta ]; then
-        echo "Generating ${f}.fasta..."
-        $BEDTOOLS getfasta -fi $REF -bed $f -fo ${f}.fasta
-    fi
-    echo "$MEME -oc $OUTDIR -time 300 -order 1 -db $MEMEJASPARDB -meme-mod zoops -meme-minw 6 -meme-maxw 30 -meme-nmotifs 3 -dreme-e 0.05 -centrimo-score 5.0 -centrimo-ethresh 10.0 ${f}.fasta" | bsub -n1 -W5:00 -app Reserve10G -J meme -o meme.out -e meme.err
-done
-```
-
-### rGadem
-
-```R
-library(rGADEM)
-library(GenomicRanges)
-library(BSgenome.Hsapiens.UCSC.hg38)
-
-PROJECT <- "/projects/xxx"
-TOP <- 50   # take only top peaks (values >50 usually make GADEM cracsh with segfault)
-
-# read in the peaks and call the motif discovery tool
-bed <- read.table(paste0(PROJECT, "/GSE51142/results/macs2/zbtb10.vs.igg_peaks.xls"), comment="#", sep="\t", head=T)
-sel <- rev(order(bed$X.log10.qvalue.))[1:TOP]
-bed$chr <- paste0("chr", bed$chr)
-peaks <- with(bed[sel,], RangedData(IRanges(start, end), space=chr))
-gadem <- GADEM(peaks, verbose=1, genome=Hsapiens)
 ```
 
 ## Retrieve chromosome sizes
@@ -709,244 +510,6 @@ ggplot(df, aes(x=X2, y=value, fill=as.factor(X1))) +
 dev.off()
 ```
 
-## Quick and dirty, call peaks with MACS2 and SICER
-
-### MACS2
-
-**targets file**
-
-Create a tab-separated targets file with the IP-input pairs:
-
-```bash
-IP                             IP2                            IPname          INPUT                   INPUTname     group
-Pol2_IP_rrp6_1.bam       Pol2_IP_rrp6_2.bam       Pol2_rrp6       Input_DNA.bam     Input_DNA     Pol2_rrp6
-Pol2_IP_rtt109_1.bam     Pol2_IP_rtt109_2.bam     Pol2_rtt109     Input_DNA.bam     Input_DNA     Pol2_rtt109
-Pol2_IP_WT_1.bam         Pol2_IP_WT_2.bam         Pol2_WT         Input_DNA.bam     Input_DNA     Pol2_WT
-Pol2_IP_rrp6_1-ss.bam    Pol2_IP_rrp6_2-ss.bam    Pol2_rrp6-ss    Input_DNA-ss.bam  Input_DNA-ss  Pol2_rrp6-ss
-Pol2_IP_rtt109_1-ss.bam  Pol2_IP_rtt109_2-ss.bam  Pol2_rtt109-ss  Input_DNA-ss.bam  Input_DNA-ss  Pol2_rtt109-ss
-Pol2_IP_WT_1-ss.bam      Pol2_IP_WT_2-ss.bam      Pol2_WT-ss      Input_DNA-ss.bam  Input_DNA-ss  Pol2_WT-ss
-```
-
-**MACS2**
-
-Remember to change the thresholds (-m), genome size (-g), cutoff (-q) and add --broad when calling broad peaks:
-
-```bash
-#!/bin/bash
-MACS2=/opt/macs2/latest
-PROJECT=/projects/xxx
-TARGETS=${PROJECT}/scripts/targets.txt
-tail -n +2 $TARGETS | while read -r TARGET; do
-    IP=$(       echo $TARGET | cut -f1 -d" ")
-    IP2=$(      echo $TARGET | cut -f2 -d" ")
-    IPname=$(   echo $TARGET | cut -f3 -d" ")
-    INPUT=$(    echo $TARGET | cut -f4 -d" ")
-    INPUTname=$(echo $TARGET | cut -f5 -d" ")
-    if [ ! -e "${PROJECT}/results/macs2" ]; then
-        mkdir -p "${PROJECT}/results/macs2"
-    fi
-    L1="source ${MACS2}/env.sh"
-    L2="${MACS2}/bin/macs2 callpeak -t ${PROJECT}/mapped/$IP ${PROJECT}/mapped/$IP2 -c ${PROJECT}/mapped/$INPUT -n $IPname -m 5 50 -g mm -q 0.05"
-    L3="mv $IPname* ${PROJECT}/results/macs2"
-    echo "$L1 && $L2 && $L3" | bsub -n1 -W1:00 -app Reserve2G -J $IPname -o ${IPname}.out -e ${IPname}.err
-done
-```
-
-### SICER
-**targets file**
-
-Create a tab-separated targets file with the IP-input pairs:
-
-```bash
-IP      INPUT   name
-AE_1_k27m3.bam Input_AE_1_k27m3.bam   AE_1_k27m3
-AE_2_k27m3.bam Input_AE_1_k27m3.bam   AE_2_k27m3
-E125_1_k27m3.bam       Input_E125_1_k27m3.bam E125_1_k27m3
-E125_2_k27m3.bam       Input_E125_1_k27m3.bam E125_2_k27m3
-E145_1_k27m3.bam       Input_E145_1_k27m3.bam E145_1_k27m3
-E145_2_k27m3.bam       Input_E145_1_k27m3.bam E145_2_k27m3
-ISCS_1_k27m3.bam       Input_ISCS_1_k27m3.bam ISCS_1_k27m3
-ISCS_2_k27m3.bam       Input_ISCS_1_k27m3.bam ISCS_2_k27m3
-```
-
-**SICER**
-
-SICER is potentially good to call broad peaks, like H3K27me3 histone marks. Remember to change SICER's parms:
-
-```bash
-#!/bin/bash
-BEDTOOLS=/opt/BEDTools/2.25.0/bin
-SICER=/opt/sicer/1.1
-PROJECT=/projects/xxx
-TARGETS=${PROJECT}/peakcalling_SICER/targets.txt
-
-# SICER parms
-Species=mm9
-redundancy_threshold=1
-window_size=200
-fragment_size=150
-effective_genome_fraction=.74
-gap_size=1000
-FDR=.01
-
-tail -n +2 $TARGETS | while read -r TARGET; do
-        IP=$(   echo $TARGET | cut -f1 -d" ")
-        INPUT=$(echo $TARGET | cut -f2 -d" ")
-        name=$( echo $TARGET | cut -f3 -d" ")
-        WD=${PROJECT}/peakcalling_SICER/${name}
-        if [ ! -e "${WD}" ]; then
-                mkdir "${WD}"
-        fi
-        L1="${BEDTOOLS}/bedtools bamtobed -split -i ${PROJECT}/mapping/mapping_results/${IP} > ${WD}/${IP%.bam}.bed"
-        L2="${BEDTOOLS}/bedtools bamtobed -split -i ${PROJECT}/mapping/mapping_results/${INPUT} > ${WD}/${INPUT%.bam}.bed"
-        L3="source ${SICER}/env.sh && ${SICER}/SICER.sh ${WD} ${IP%.bam}.bed ${INPUT%.bam}.bed ${WD} $Species $redundancy_threshold $window_size $fragment_size $effective_genome_fraction $gap_size $FDR"
-        echo "$L1 && $L2 && $L3" | bsub -n1 -W5:00 -app Reserve2G -J $name -o ${WD}/${name}.out -e ${WD}/${name}.err
-done
-```
-
-## Differential exon usage
-
-### DEXSeq
-
-Do differential exon usage with ''DEXSeq'' and ''Bioconductor''
-
-```R
-library(GenomicFeatures)
-library(GenomicAlignments)
-library(Rsamtools)
-library(DEXSeq)
-library(BiocParallel)
-
-PROJECT <- "/project/
-GTF <- "/annotation/Homo_sapiens.GRCh38.84.gtf"
-FC  <- log2(1.5)    # expect 50% more expression
-FDR <- .01
-
-##
-## count reads on exons
-##
-exonicParts   <- exonicParts(makeTxDbFromGFF(GTF))
-#intronicParts <- intronicParts(makeTxDbFromGFF(GTF))   # alternatively, one could look at intron retention
-bams <- BamFileList(list.files(paste0(PROJECT, "/mapped"), pattern="_read\\.bam$", full=TRUE),
-                    index=character(),              # the BAM index file path
-                    asMates=TRUE,                   # records should be paired as mates
-                    obeyQname=TRUE)                 # BAM file is sorted by ‘qname’
-
-counts <- summarizeOverlaps(exonicParts,
-                            bams,
-                            mode="Union",           # default htseq union mode
-                            singleEnd=FALSE,        # data is paired end
-                            inter.feature=FALSE,    # don't discard reads spannings multiple exons
-                            fragments=TRUE,         # count also singletons
-                            ignore.strand=TRUE,     # it's strand specific, but still ignore the strand
-                            BPPARAM=MulticoreParam(workers=6))
-
-##
-## DEXSeq
-##
-colData(counts)$condition <- c(rep("Id2", 3), rep("GFP", 3))
-dds <- DEXSeqDataSetFromSE(counts, design= ~ sample + exon + condition:exon )
-
-# normalize, estimate dispersion, test for differential expression and estimate fold changes
-dds <- estimateSizeFactors(dds)
-dds <- estimateDispersions(dds, BPPARAM=MulticoreParam(workers=16))
-dds <- testForDEU(dds, BPPARAM=MulticoreParam(workers=16))
-dds <- estimateExonFoldChanges(dds, fitExpToVar="condition", BPPARAM=MulticoreParam(workers=16))
-
-# extract significant genes
-res <- DEXSeqResults(dds)
-
-res$log2fold_Id2_GFP <- ifelse(is.na(res$log2fold_Id2_GFP), 0, res$log2fold_Id2_GFP)
-res$padj <- ifelse(is.na(res$padj), 1, res$padj)
-geneids <- unique(res$groupID[abs(res$log2fold_Id2_GFP) > FC & res$padj < FDR])
-
-res2 <- res[res$groupID %in% geneids, ]
-x <- do.call(rbind, by(res2, res2$groupID, function(x) data.frame(padj=min(x$padj), log2fold_Id2_GFP=max(x$log2fold_Id2_GFP))))
-
-DEXSeqHTML(res2, path=paste0(PROJECT, "/results/DEXSeq"), FDR=FDR, BPPARAM=MulticoreParam(workers=16), extraCols=x,
-           mart=useMart("ensembl",dataset="hsapiens_gene_ensembl"), filter="ensembl_gene_id", attributes="external_gene_name")
-
-save.image(file=paste0(PROJECT, "/results/DEXSeq.RData"))
-```
-
-'''Notes:'''
-Running on PE inversely stranded protocols, look at [https://support.bioconductor.org/p/65844/ this bioconductor thread].
-
-Some parts of the code need to be adjusted. First, we'll need to define our own invertStrand function:
-
-```R
-invertStrand <- function(galp)
-{
-    ## Using a non-exported helper function and direct slot access is
-    ## bad practice and is strongly discouraged. Sorry for doing this here!
-    invertRleStrand <- GenomicAlignments:::invertRleStrand
-    galp@first <- invertRleStrand(galp@first)
-    galp@last <- invertRleStrand(galp@last)
-    galp
-}
-```
-
-Which will then be called from the ''summarizeOverlaps()'' call in ''DEXSeq'', as a preprocessing step:
-
-```R
-counts <- summarizeOverlaps(exonicParts,
-                            bams,
-                            mode="Union",           # default htseq union mode
-                            singleEnd=FALSE,        # data is paired end
-                            inter.feature=FALSE,    # don't discard reads spannings multiple exons
-                            fragments=TRUE,         # count also singletons
-                            ignore.strand=FALSE,
-                            preprocess.reads=invertStrand, # as suggested in: https://support.bioconductor.org/p/65844/
-                            BPPARAM=MulticoreParam(workers=6))
-```
-## Differential splicing analysis
-
-### rMATS
-
-[Quick example](https://github.com/Xinglab/rmats-turbo/#examples), starting from FastQ files (includes mapping with STAR with whatever parameters rMATS likes):
-
-```bash
-#!/bin/bash
-PROJECT="/fsimb/groups/imb-bioinfocf/projects/roukos/imb_roukos_2020_13_sant_rnaseq_aquarius"
-GROUP1="${PROJECT}/scripts/rmats_group_aux.txt"
-GROUP2="${PROJECT}/scripts/rmats_group_dmso.txt"
-STAR_REF="/fsimb/common/genomes/homo_sapiens/gencode/release-26_GRCh38.p10/full/index/star/2.7.3a"
-GENESGTF="/fsimb/common/genomes/homo_sapiens/gencode/release-26_GRCh38.p10/full/annotation/gencode.v26.primary_assembly.annotation.gtf"
-READLENGTH=42
-THREADS=4
-TMP="${PROJECT}/tmp"
-[[ -n $SLURM_JOB_ID ]] && TMP="/jobdir/$SLURM_JOB_ID"
-mkdir -p $TMP
-
-ls ${PROJECT}/rawdata/*.fastq.gz | parallel -j $THREADS "x=\$(basename {}); zcat {} > ${TMP}/\${x%.gz}"
-cat $GROUP1 | sed "s~\%path\%~${TMP}~g" > ${TMP}/$(basename $GROUP1)
-cat $GROUP2 | sed "s~\%path\%~${TMP}~g" > ${TMP}/$(basename $GROUP2)
-
-ml rmats/4.1.0
-python $(which rmats.py) \
-  --s1 ${TMP}/$(basename $GROUP1) \
-  --s2 ${TMP}/$(basename $GROUP2) \
-  --gtf $GENESGTF \
-  --bi $STAR_REF \
-  -t paired \
-  --readLength $READLENGTH \
-  --nthread $THREADS \
-  --tstat $THREADS \
-  --od ${PROJECT}/results/rmats \
-  --tmp $TMP
-```
-
-The targets files containing the fastq samples to be processed should be included in 2 files:
-
-```bash
-$ cat rmats_group_aux.txt 
-%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_02_AUX_1.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_02_AUX_1.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_04_AUX_2.R1.fastq:%path%/imb_roukos_2020_13_sant_r naseq_aquarius_04_AUX_2.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_06_AUX_3.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_06_AUX_3.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_08_AUX_4.R1.fastq :%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_08_AUX_4.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_10_AUX_5.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_10_AUX_5.R2.fastq
-$ cat rmats_group_dmso.txt 
-%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_01_DMSO_1.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_01_DMSO_1.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_03_DMSO_2.R1.fastq:%path%/imb_roukos_2020_13_san t_rnaseq_aquarius_03_DMSO_2.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_05_DMSO_3.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_05_DMSO_3.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_07_DMSO_4.R 1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_07_DMSO_4.R2.fastq,%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_09_DMSO_5.R1.fastq:%path%/imb_roukos_2020_13_sant_rnaseq_aquarius_09_DMSO_5.R2.fastq
-```
-
-Notice that we use the pattern %path%, that we will later substitute within the script with the $TMP folder (depending whether the job run interactively or in the cluster)
-
 ## Predict genes network with genemania
 
 A bit convoluted to setup. First get the [command line tools jar](http://pages.genemania.org/command-line-tools/). Then, install the [Cytoscape app](http://apps.cytoscape.org/apps/genemania), open Cytoscape and download the network sources for the desired organism (I didn't find any other way to get them from genemania.org). Once downloaded, put them together with the binary (the jar file).
@@ -1023,24 +586,6 @@ regions <- regions[regions$ensembl_transcript_id %in% appris$V3, ]  # main isofo
 regions <- regions[!is.na(regions$transcript_gencode_basic), ]      # only complete transcripts (redundant with appris)
 regions$strand <- ifelse(regions$strand[1] > 0, "+", "-")
 regions <- makeGRangesFromDataFrame(regions, keep.extra.columns=TRUE)
-```
-
-## DGE with limma if raw counts are not available
-
-If raw counts are not available,  proceed as suggested in this post (and in limma's vignette)
-  * https://support.bioconductor.org/p/92303/
-```
-If you really were stuck with nothing but CPM values, then the best approach would be to transform to log2 values:
-y <- log2(CPM + 0.1)
-and then analyse in the limma package as if it was microarray data, using a limma-trend type analysis.
-```
-
-* https://www.bioconductor.org/packages/release/bioc/vignettes/limma/inst/doc/usersguide.pdf
-```
-If the sequencing depth is reasonably consistent across the RNA samples, then the simplest and most
-robust approach to differential exis to use limma-trend. This approach will usually work well if the
-ratio of the largest library size to the smallest is not more than about 3-fold.
-In the limma-trend approach, the counts are converted to logCPM values using edgeR’s cpm function
 ```
 
 ## Match a pattern in the genome

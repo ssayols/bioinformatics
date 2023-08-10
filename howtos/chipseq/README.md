@@ -5,6 +5,9 @@
 * [ChIP-seq workflows](#chip-seq-workflows)
    * [QC](#qc)
       * [FRIP](#frip)
+   * [Quick and dirty, call peaks with MACS2 and SICER](#quick-and-dirty-call-peaks-with-macs2-and-sicer)
+      * [MACS2](#macs2)
+      * [SICER](#sicer)
    * [Get blacklisted regions from UCSC](#get-blacklisted-regions-from-ucsc)
    * [Differential binding analysis](#differential-binding-analysis)
       * [Prepare the targets file](#prepare-the-targets-file)
@@ -12,12 +15,14 @@
       * [DiffBind (Bioconductor)](#diffbind-bioconductor)
    * [Annotate peaks](#annotate-peaks)
    * [Motif discovery](#motif-discovery)
-      * [rGADEM](#rgadem)
       * [MEME](#meme)
       * [BCRANK](#bcrank)
+      * [rGadem](#rgadem)
    * [Plots](#plots)
       * [Plot signal around features](#plot-signal-around-features)
       * [Distribution of peaks along the genome](#distribution-of-peaks-along-the-genome)
+   * [Other](#other)
+      * [Extend reads for ChIP/MBD](#extend-reads-for-chipmbd)
 
 ## ChIP-seq workflows
 
@@ -76,6 +81,101 @@ x <- mclapply(f, function(f) {
 }, mc.cores=CORES)
 
 write.csv(x, file="./qc/frip.csv", row.names=F)
+```
+
+### Quick and dirty, call peaks with MACS2 and SICER
+
+#### MACS2
+
+**targets file**
+
+Create a tab-separated targets file with the IP-input pairs:
+
+```bash
+IP                             IP2                            IPname          INPUT                   INPUTname     group
+Pol2_IP_rrp6_1.bam       Pol2_IP_rrp6_2.bam       Pol2_rrp6       Input_DNA.bam     Input_DNA     Pol2_rrp6
+Pol2_IP_rtt109_1.bam     Pol2_IP_rtt109_2.bam     Pol2_rtt109     Input_DNA.bam     Input_DNA     Pol2_rtt109
+Pol2_IP_WT_1.bam         Pol2_IP_WT_2.bam         Pol2_WT         Input_DNA.bam     Input_DNA     Pol2_WT
+Pol2_IP_rrp6_1-ss.bam    Pol2_IP_rrp6_2-ss.bam    Pol2_rrp6-ss    Input_DNA-ss.bam  Input_DNA-ss  Pol2_rrp6-ss
+Pol2_IP_rtt109_1-ss.bam  Pol2_IP_rtt109_2-ss.bam  Pol2_rtt109-ss  Input_DNA-ss.bam  Input_DNA-ss  Pol2_rtt109-ss
+Pol2_IP_WT_1-ss.bam      Pol2_IP_WT_2-ss.bam      Pol2_WT-ss      Input_DNA-ss.bam  Input_DNA-ss  Pol2_WT-ss
+```
+
+**MACS2**
+
+Remember to change the thresholds (-m), genome size (-g), cutoff (-q) and add --broad when calling broad peaks:
+
+```bash
+#!/bin/bash
+MACS2=/opt/macs2/latest
+PROJECT=/projects/xxx
+TARGETS=${PROJECT}/scripts/targets.txt
+tail -n +2 $TARGETS | while read -r TARGET; do
+    IP=$(       echo $TARGET | cut -f1 -d" ")
+    IP2=$(      echo $TARGET | cut -f2 -d" ")
+    IPname=$(   echo $TARGET | cut -f3 -d" ")
+    INPUT=$(    echo $TARGET | cut -f4 -d" ")
+    INPUTname=$(echo $TARGET | cut -f5 -d" ")
+    if [ ! -e "${PROJECT}/results/macs2" ]; then
+        mkdir -p "${PROJECT}/results/macs2"
+    fi
+    L1="source ${MACS2}/env.sh"
+    L2="${MACS2}/bin/macs2 callpeak -t ${PROJECT}/mapped/$IP ${PROJECT}/mapped/$IP2 -c ${PROJECT}/mapped/$INPUT -n $IPname -m 5 50 -g mm -q 0.05"
+    L3="mv $IPname* ${PROJECT}/results/macs2"
+    echo "$L1 && $L2 && $L3" | bsub -n1 -W1:00 -app Reserve2G -J $IPname -o ${IPname}.out -e ${IPname}.err
+done
+```
+
+#### SICER
+**targets file**
+
+Create a tab-separated targets file with the IP-input pairs:
+
+```bash
+IP      INPUT   name
+AE_1_k27m3.bam Input_AE_1_k27m3.bam   AE_1_k27m3
+AE_2_k27m3.bam Input_AE_1_k27m3.bam   AE_2_k27m3
+E125_1_k27m3.bam       Input_E125_1_k27m3.bam E125_1_k27m3
+E125_2_k27m3.bam       Input_E125_1_k27m3.bam E125_2_k27m3
+E145_1_k27m3.bam       Input_E145_1_k27m3.bam E145_1_k27m3
+E145_2_k27m3.bam       Input_E145_1_k27m3.bam E145_2_k27m3
+ISCS_1_k27m3.bam       Input_ISCS_1_k27m3.bam ISCS_1_k27m3
+ISCS_2_k27m3.bam       Input_ISCS_1_k27m3.bam ISCS_2_k27m3
+```
+
+**SICER**
+
+SICER is potentially good to call broad peaks, like H3K27me3 histone marks. Remember to change SICER's parms:
+
+```bash
+#!/bin/bash
+BEDTOOLS=/opt/BEDTools/2.25.0/bin
+SICER=/opt/sicer/1.1
+PROJECT=/projects/xxx
+TARGETS=${PROJECT}/peakcalling_SICER/targets.txt
+
+# SICER parms
+Species=mm9
+redundancy_threshold=1
+window_size=200
+fragment_size=150
+effective_genome_fraction=.74
+gap_size=1000
+FDR=.01
+
+tail -n +2 $TARGETS | while read -r TARGET; do
+        IP=$(   echo $TARGET | cut -f1 -d" ")
+        INPUT=$(echo $TARGET | cut -f2 -d" ")
+        name=$( echo $TARGET | cut -f3 -d" ")
+        WD=${PROJECT}/peakcalling_SICER/${name}
+        if [ ! -e "${WD}" ]; then
+                mkdir "${WD}"
+        fi
+        L1="${BEDTOOLS}/bedtools bamtobed -split -i ${PROJECT}/mapping/mapping_results/${IP} > ${WD}/${IP%.bam}.bed"
+        L2="${BEDTOOLS}/bedtools bamtobed -split -i ${PROJECT}/mapping/mapping_results/${INPUT} > ${WD}/${INPUT%.bam}.bed"
+        L3="source ${SICER}/env.sh && ${SICER}/SICER.sh ${WD} ${IP%.bam}.bed ${INPUT%.bam}.bed ${WD} $Species $redundancy_threshold $window_size $fragment_size $effective_genome_fraction $gap_size $FDR"
+        echo "$L1 && $L2 && $L3" | bsub -n1 -W5:00 -app Reserve2G -J $name -o ${WD}/${name}.out -e ${WD}/${name}.err
+done
 ```
 
 ### Get blacklisted regions from UCSC
@@ -183,29 +283,35 @@ WriteXLS("ann", ExcelFileName="./results/timecourse_h2az.xls",
          SheetNames=gsub("(.+)=\\((.+)\\)", "\\2", conts[, 1]))
 ```
 
-### Motif discovery
+## Motif discovery
 
-#### rGADEM
+### MEME
 
-```R
-library(rGADEM)
-library(GenomicRanges)
-library(BSgenome.Hsapiens.UCSC.hg38)
+```bash
+#!/bin/bash
+# run meme-chip with the same arguments as calling it from the http://meme-suite.org/
+PROJECT=/projects/xxx
+OUTDIR=${PROJECT}/GSE51142/results/meme
+INDIR=${PROJECT}/GSE51142/results/macs2
+BEDTOOLS=/opt/BEDTools/latest/bin/bedtools
+MEME=/opt/meme/latest/bin/meme-chip
+REF=/igenomes/homo_sapiens/ensembl/grch38/canonical/genome/Homo_sapiens.GRCh38.dna.primary_assembly.fa
+MEMEHUMANDB=/opt/meme/motif_databases/HUMAN/HOCOMOCOv10_HUMAN_mono_meme_format.meme
+MEMEJASPARDB=/opt/meme/motif_databases/JASPAR/JASPAR_CORE_2016_vertebrates.meme
 
-PROJECT <- "/fsimb/groups/imb-bioinfocf/projects/butter/imb_butter_2016_02_bluhm_ChIPseq/"
-TOP <- 50   # take only top peaks (values >50 usually make GADEM cracsh with segfault)
-
-# read in the peaks and call the motif discovery tool
-bed <- read.table(paste0(PROJECT, "/GSE51142/results/macs2/zbtb10.vs.igg_peaks.xls"), comment="#", sep="\t", head=T)
-sel <- rev(order(bed$X.log10.qvalue.))[1:TOP]
-bed$chr <- paste0("chr", bed$chr)
-peaks <- with(bed[sel, ], RangedData(IRanges(start, end), space=chr))
-gadem <- GADEM(peaks, verbose=1, genome=Hsapiens)
+for f in ${INDIR}/*.narrowPeak; do
+    if [ ! -e $OUTDIR ]; then
+        mkdir $OUTDIR
+    fi
+    if [ ! -e ${f}.fasta ]; then
+        echo "Generating ${f}.fasta..."
+        $BEDTOOLS getfasta -fi $REF -bed $f -fo ${f}.fasta
+    fi
+    echo "$MEME -oc $OUTDIR -time 300 -order 1 -db $MEMEJASPARDB -meme-mod zoops -meme-minw 6 -meme-maxw 30 -meme-nmotifs 3 -dreme-e 0.05 -centrimo-score 5.0 -centrimo-ethresh 10.0 ${f}.fasta" | bsub -n1 -W5:00 -app Reserve10G -J meme -o meme.out -e meme.err
+done
 ```
 
-#### MEME
-
-I had little success with rGADEM, being more successful with MEME. Try [[Motif discovery]], or call it from R:
+or call it from R:
 
 ```R
 library(BSgenome.Dmelanogaster.UCSC.dm3)
@@ -235,7 +341,7 @@ system(paste(MEME_EXE, "-oc", MEME_RES, paste("-db", MEME_DB, collapse=" "), pas
              "-meme-nmotifs 3 -dreme-e 0.05 -centrimo-score 5.0 -centrimo-ethresh 10.0", outfa))
 ```
 
-#### BCRANK
+### BCRANK
 
 Yet another algorithm, this time suggested in a Bioconductor [http://biocluster.ucr.edu/~rkaundal/workshops/R_feb2016/ChIPseq/ChIPseq.html#count-reads-overlapping-the-peak-regions course]:
 
@@ -257,6 +363,26 @@ weightMatrix <- pwm(topMotif, normalize = FALSE)
 weightMatrixNormalized <- pwm(topMotif, normalize = TRUE)
 seqLogo(weightMatrixNormalized)
 ```
+
+
+### rGadem
+
+```R
+library(rGADEM)
+library(GenomicRanges)
+library(BSgenome.Hsapiens.UCSC.hg38)
+
+PROJECT <- "/projects/xxx"
+TOP <- 50   # take only top peaks (values >50 usually make GADEM cracsh with segfault)
+
+# read in the peaks and call the motif discovery tool
+bed <- read.table(paste0(PROJECT, "/GSE51142/results/macs2/zbtb10.vs.igg_peaks.xls"), comment="#", sep="\t", head=T)
+sel <- rev(order(bed$X.log10.qvalue.))[1:TOP]
+bed$chr <- paste0("chr", bed$chr)
+peaks <- with(bed[sel,], RangedData(IRanges(start, end), space=chr))
+gadem <- GADEM(peaks, verbose=1, genome=Hsapiens)
+```
+
 
 ### Plots
 
@@ -403,5 +529,42 @@ ggplot(df.peaks, aes(pos)) +
    theme_bw() +
    theme(axis.title.x=element_blank(), axis.text.x=element_blank(), axis.ticks.x=element_blank()) +
    theme(axis.title.y=element_blank(), axis.text.y=element_blank(), axis.ticks.y=element_blank())
+```
+
+### Other
+#### Extend reads for ChIP/MBD
+
+This script will loop over the BAM files in a directori, and extend 3'end of the reads for $1 bp in order to match the average library's insert size and improve the peak calling.
+
+**Requirements**
+
+* bedtools
+* samtools
+* The cromosome sizes, which can be retrieved as described [](#retrieve-chromosome-sizes).
+
+**Source**
+```bash
+#!/bin/bash
+SIZE=$1
+BASEDIR=./mapped
+EXEC=/opt
+REF=./mm9.chrom.sizes
+
+for f in ${BASEDIR}/*.bam
+do
+  F=$(basename $f)
+
+  # 1: bam2bed
+  # 2: extend 51bp reads to average fragment size 180bp (slopBED)
+  # 3: bed2bam
+  # 4: samtools sort bam
+  # 5: index bam
+  echo "${EXEC}/BEDTools/latest/bin/bedtools bamtobed -split -i ${BASEDIR}/${F} | \
+        ${EXEC}/BEDTools/latest/bin/bedtools slop -g ${REF} -l 0 -r ${SIZE} -s | \
+        ${EXEC}/BEDTools/latest/bin/bedtools bedtobam -ubam -g ${REF} | \
+        ${EXEC}/samtools/latest/samtools sort - ${F%.bam}_ext && \
+        ${EXEC}/samtools/latest/samtools index ${F%.bam}_ext.bam" | \
+  bsub -J ${F%.bam} -o ${F%.bam}_ext.log -cwd $(pwd) -W 2:00 -n 1 -q "testing"
+done
 ```
 
