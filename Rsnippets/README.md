@@ -9,6 +9,7 @@
       * [Color palettes with RColorBrewer](#color-palettes-with-rcolorbrewer)
       * [Color palettes with colorspace](#color-palettes-with-colorspace)
       * [ggplo2 color palette](#ggplo2-color-palette)
+   * [Beautiful boxplots](#beautiful-boxplots)
    * [Spaghetti plot: graphs showing regression uncertainty](#spaghetti-plot-graphs-showing-regression-uncertainty)
    * [Smooth spline ggplot2](#smooth-spline-ggplot2)
    * [MA plot](#ma-plot)
@@ -208,6 +209,22 @@ gg_color_hue <- function(n) {
   hues = seq(15, 375, length = n + 1)
   hcl(h = hues, l = 65, c = 100)[1:n]
 }
+```
+
+### Beautiful boxplots
+
+Replace the common boring boxplot with a combination of beeswarm jittered points, a violin layer to show the distribution and a stat summary layer describing a boxplot.stats-like information of the dispersion of the data.
+
+```R
+ggplot(df, aes(x=class, y=blunt_rate, color=class)) +
+  geom_violin() +
+  geom_beeswarm(aes(color=class), position=position_jitter(.2), alpha=1/3) +
+  stat_summary(fun.data=median_hilow, mult=1, geom="pointrange", color="red") +
+  scale_y_continuous(limits=c(0, 1)) +
+  scale_color_manual("", values=palette()) +
+  labs(title="Blunt rate of OT", x="", y="blunt rate",
+         subtitle=paste0("pval", format.pval(anova(lm(df$blunt_rate ~ df$class))$`Pr(>F)`[1]))) +
+  theme(legend.position="none")
 ```
 
 ### Spaghetti plot: graphs showing regression uncertainty
