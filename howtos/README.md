@@ -820,7 +820,51 @@ guide$region_annotation[queryHits(i)] <- gap$type[subjectHits(i)]
 ```
 
 ## Signal summary around regions of interest
+The usual metagene plots with histone marks:
+```R
+metaplot <- function(regions, signal, ext=5000, bins=201, title="") {
+  # define regions
+  regions <- keepSeqlevels(regions, names(signal), pruning.mode="coarse")
+  middle <- mid(regions)
+  start(regions) <- middle - ext
+  end(regions)   <- middle + ext
+  regions.binned <- unlist(tile(regions, n=bins))
+  regions.binned$region <- rep(seq_along(regions), each=bins)
 
+  # get binned signal average
+  x <- binnedAverage(regions.binned, signal, "score")
+  x <- matrix(x$score, ncol=bins, byrow=TRUE)
+  x <- lapply(split(seq_len(nrow(x)), regions$scission_profile), function(i) {
+    colSums(x[i, ], na.rm=TRUE) / length(i)   # aggregate signal from multiple regions, normalized to the number of regions
+  })
+
+  # add some random regions to show the bg
+  regions.random <- shift(regions, shift=runif(length(regions), -100000, 100000)) # randomly shift region +/- 1M
+  regions.random.binned <- unlist(tile(regions.random, n=bins))                   # tile into bins
+  regions.random.binned$region <- rep(seq_along(regions.random), each=bins)
+  x.random <- binnedAverage(regions.random.binned, signal, "score") # get binned signal average
+  x.random <- matrix(x.random$score, ncol=bins, byrow=TRUE)
+  x$random <- colSums(x.random, na.rm=T) / length(regions.random)   # aggregate signal + normalize to the number of regions
+
+  # plot something
+  df    <- reshape2::melt(x)
+  df$x  <- rep(1:bins, length(x))
+  df$L1 <- factor(df$L1, levels=c("blunt", "middle", "staggered", "random"))
+  pal   <- c(palette()[1:3], "grey30")
+
+  ggplot(df, aes(x=x, y=value, color=L1)) +
+    geom_smooth(span=1/20) +
+#    geom_line() +
+    geom_vline(xintercept=(1+bins)/2, lty=2) +
+    labs(title=title, y="arbitrary units", x="") +
+    scale_color_manual("", values=pal) +
+    scale_x_continuous(breaks=c(0, (1+bins)/2, bins), labels=c(-ext, "DSB", ext)) +
+    theme(legend.position="bottom")
+}
+```
+This is just a simplified version with 1 single coordinate extended up/down stream. A more elaborated version with a gene body and its up/down stream regions requires uneven splitting of the 3 regions (since the gene body will be of different size and the up/down streams of fixed size).
+
+### Other methods to aggregate signal in a bin
 A binnedAverage() like function, more general, in a way that it could compute more than just the mean:
 
 ```R
