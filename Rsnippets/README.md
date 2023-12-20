@@ -654,6 +654,17 @@ v$labels["peaks2"] <- paste(B , "peaks in cond2")
 plot(v, sub=paste("peaks overlap=", AB))
 ```
 
+And yet another option, this time calculating number of unique/common MB of features between 2 GRanges objects and using the `eulerr` package:
+
+```R
+hic    <- reduce(import("hic_regions.bed"))
+microc <- reduce(import("microc_regions.bed"))
+x <- c(HiC   =sum(width(setdiff(hic, microc))) / 1e6,
+       MicroC=sum(width(setdiff(microc, hic))) / 1e6)
+x["HiC&MicroC"] <- sum(width(reduce(c(hic, microc)))) / 1e6 - x["HiC"] - x["MicroC"]
+plot(euler(x), quantities=TRUE, main="Region overlap (in MB)")
+```
+
 ### Calling gnuplot
 
 From R, one can pipe commands into gnuplot after opening a new session:
