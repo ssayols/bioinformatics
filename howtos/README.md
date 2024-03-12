@@ -639,6 +639,14 @@ in R:
 chartr("ACTG", "TGAC", paste(rev(unlist(strsplit(s, ""))), collapse=""))
 ```
 
+or using Bioconductor for more complex [IUPAC strings](https://www.bioinformatics.org/sms/iupac.html):
+
+```R
+library(Biostrings)
+x <- DNAString("ACGT-YN-")
+reverseComplement(x)
+```
+
 ## Query the Uniprot Rest API
 
 Retrieving stuff using the [Rest API](https://www.uniprot.org/help/api_queries) provided by Uniprot:
