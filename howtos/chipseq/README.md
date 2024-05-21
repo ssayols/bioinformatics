@@ -193,6 +193,8 @@ blcklst <- rbind(getTable(ucscTableQuery(mySession, table="wgEncodeDacMapability
 blcklst <- with(blcklst, GRanges(chrom, IRanges(chromStart, chromEnd)))
 ```
 
+Alternatively, download the BED files from [Boyle's lab Github repo](https://github.com/Boyle-Lab/Blacklist/tree/master/lists).
+
 ### Differential binding analysis
 
 #### Prepare the targets file
