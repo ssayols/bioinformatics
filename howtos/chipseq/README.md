@@ -8,6 +8,7 @@
    * [Quick and dirty, call peaks with MACS2 and SICER](#quick-and-dirty-call-peaks-with-macs2-and-sicer)
       * [MACS2](#macs2)
       * [SICER](#sicer)
+   * [Merge peaks from replicates](#merge-peaks-from-replicates)
    * [Get blacklisted regions from UCSC](#get-blacklisted-regions-from-ucsc)
    * [Differential binding analysis](#differential-binding-analysis)
       * [Prepare the targets file](#prepare-the-targets-file)
@@ -176,6 +177,26 @@ tail -n +2 $TARGETS | while read -r TARGET; do
         L3="source ${SICER}/env.sh && ${SICER}/SICER.sh ${WD} ${IP%.bam}.bed ${INPUT%.bam}.bed ${WD} $Species $redundancy_threshold $window_size $fragment_size $effective_genome_fraction $gap_size $FDR"
         echo "$L1 && $L2 && $L3" | bsub -n1 -W5:00 -app Reserve2G -J $name -o ${WD}/${name}.out -e ${WD}/${name}.err
 done
+```
+
+### Merge peaks from replicates
+Use [ENCODE's IDR tool](https://www.encodeproject.org/software/idr/) for that. Thankfully there's a [BioConda package](https://bioconda.github.io/recipes/idr/README.html) for IDR which makes its installation easy.
+
+```sh
+r1=h3k4me3.R1
+r2=h3k4me3.R2
+
+# sort narrowpeaks by -log10(p-val)
+sorted1=$(mktemp)
+sorted2=$(mktemp)
+sort -k8,8nr ${PROJECT}/results/macs2/filtered/${r1}_macs2_peaks.narrowPeak > $sorted1
+sort -k8,8nr ${PROJECT}/results/macs2/filtered/${r2}_macs2_peaks.narrowPeak > $sorted2
+
+# call IDR
+idr --input-file-type narrowPeak \
+    --output-file ${PROJECT}/results/idr/${r1}_${r2}.merged.bed \
+    --samples $sorted1 $sorted2 \
+    --idr-threshold 0.05
 ```
 
 ### Get blacklisted regions from UCSC
