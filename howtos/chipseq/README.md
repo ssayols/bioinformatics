@@ -602,11 +602,11 @@ Simple methods such as TPM/RPKM/FPKM (correct for sequencing depth) fail to
 correct for the systematic differences in library composition due to the 
 differences in either the peak landscape or signal/noise ratio.
 
-*Steps*
-1-Create Bigwig tracks (from BAMs) with deeptools `bamCoverage` or bedtools `genomecov`
-2-Call peaks with Macs2 (or something else). Merge them somehow (IDR if replicates, DiffBind, or simply pool all them together).
-3-Create a matrix of counts x peaks using eg. featureCounts
-4-use edgeR to calculate the TMM normalization factors, and from here calculate the factor to scale (*divide*) the `score` column of the bigwig track
+**Steps**
+1. Create Bigwig tracks (from BAMs) with deeptools `bamCoverage` or bedtools `genomecov`
+2. Call peaks with Macs2 (or something else). Merge them somehow (IDR if replicates, DiffBind, or simply pool all them together).
+3. Create a matrix of counts x peaks using eg. featureCounts
+4. use edgeR to calculate the TMM normalization factors, and from here calculate the factor to scale (**divide**) the `score` column of the bigwig track
 
 ```R
 raw.counts  <- do.call(cbind, lapply(list.files("counts", pattern="*.tsv"), read.delim))
