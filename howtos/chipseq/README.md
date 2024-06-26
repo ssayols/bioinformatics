@@ -24,6 +24,7 @@
       * [Distribution of peaks along the genome](#distribution-of-peaks-along-the-genome)
    * [Other](#other)
       * [Extend reads for ChIP/MBD](#extend-reads-for-chipmbd)
+      * [Account for composition biases between conditions](#account-for-composition-biases-between-conditions)
 
 ## ChIP-seq workflows
 
@@ -589,5 +590,28 @@ do
         ${EXEC}/samtools/latest/samtools index ${F%.bam}_ext.bam" | \
   bsub -J ${F%.bam} -o ${F%.bam}_ext.log -cwd $(pwd) -W 2:00 -n 1 -q "testing"
 done
+```
+
+#### Account for composition biases between conditions
+
+Heavily inspired on this [blog post](https://www.biostars.org/p/413626/#414440).
+
+To account for severe differences in signal-to-noise ratio between experimental 
+conditions (or replicates), use [TMM (edgeR)](https://www.youtube.com/watch?v=Wdt6jdi-NQo) or [RLE (DESeq2)](https://www.youtube.com/watch?v=UFB993xufUU).
+Simple methods such as TPM/RPKM/FPKM (correct for sequencing depth) fail to 
+correct for the systematic differences in library composition due to the 
+differences in either the peak landscape or signal/noise ratio.
+
+*Steps*
+1-Create Bigwig tracks (from BAMs) with deeptools `bamCoverage` or bedtools `genomecov`
+2-Call peaks with Macs2 (or something else). Merge them somehow (IDR if replicates, DiffBind, or simply pool all them together).
+3-Create a matrix of counts x peaks using eg. featureCounts
+4-use edgeR to calculate the TMM normalization factors, and from here calculate the factor to scale (*divide*) the `score` column of the bigwig track
+
+```R
+raw.counts  <- do.call(cbind, lapply(list.files("counts", pattern="*.tsv"), read.delim))
+NormFactor  <- edgeR::calcNormFactors(object=raw.counts, method="TMM")
+LibSize     <- colSums(raw.counts)
+SizeFactors <- NormFactor * LibSize / 1000000
 ```
 
