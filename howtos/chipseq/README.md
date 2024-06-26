@@ -615,3 +615,12 @@ LibSize     <- colSums(raw.counts)
 SizeFactors <- NormFactor * LibSize / 1000000
 ```
 
+Now load the tracks, and scale them:
+
+```R
+# [import + scale + export] tracks
+Map(bigwigs, SizeFactors, f=function(bw, s) {
+  export.bw(coverage(import.bw(bw), weight="score") / s, sub("\\.bw$", ".scaled.bw", bw))
+})
+```
+
