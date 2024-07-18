@@ -2775,7 +2775,7 @@ library(gdata)
 df <- read.xls("myfile.xlsx"), sheet=1, header=TRUE)
 ```
 
-### [[SQLite]] database access
+### SQLite database access
 
 Access a local SQLite database using the ''DBI'' and ''SQLite'' packages:
 
