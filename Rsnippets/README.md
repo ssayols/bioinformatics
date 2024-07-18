@@ -20,6 +20,7 @@
    * [Pairs plot (nice)](#pairs-plot-nice)
    * [Placing multiple plots in the same device](#placing-multiple-plots-in-the-same-device)
    * [Placing multiple plots in the same device using ''ggplot'' the ''grid'' package](#placing-multiple-plots-in-the-same-device-using-ggplot-the-grid-package)
+   * [Mix vector and raster plots in the same file](#mix-vector-and-raster-plots-in-the-same-file)
    * [Heatmap + Upset](#heatmap-+-upset)
    * [Venn Diagrams](#venn-diagrams)
    * [Venn Diagrams of GRanges objects](#venn-diagrams-of-granges-objects)
@@ -434,6 +435,33 @@ plot(z$x, z$y, xlab="", ylab="Density", xaxt="n", yaxt="n", type="l", main="")
 par(mar=c(4, 1, 1, 1))
 z <- density(y, na.rm=T)
 plot(z$y, z$x, ylab="", xlab="Density", xaxt="n", yaxt="n", type="l", main="")
+```
+### Mix vector and raster plots in the same file
+
+The idea is to use an in-memory Cairo device, and write the raw bytes back to a raster object which can then be plotted with `grid`.
+We need `Cairo`, `grid` and `png` libraries.
+
+```R
+toRaster <- function(f=plot, ...) {
+  Cairo::Cairo(file='/dev/null', , bg="transparent", dpi=200, height=1024, width=1024)
+  plot(f(...))
+  
+  # hidden stuff in Cairo
+  i = Cairo:::.image(dev.cur())
+  r = Cairo:::.ptr.to.raw(i$ref, 0, i$width * i$height * 4)
+  dev.off()
+  dim(r) = c(4, i$width, i$height) # RGBA planes
+  grid::grid.raster(png::readPNG(png::writePNG(r, raw())))  # return
+})
+
+#---------
+pdf("tmp/x.pdf")
+plot(1:10)
+h1 <- pheatmap(matrix(rnorm(100), ncol=10))
+h2 <- pheatmap(matrix(rnorm(100), ncol=10))
+grid.newpage()
+grid.draw(toRaster(cowplot::plot_grid, h1$gtable, h2$gtable))
+dev.off()
 ```
 
 ### Placing multiple plots in the same device using ''ggplot'' the ''grid'' package
