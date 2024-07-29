@@ -652,10 +652,12 @@ reverseComplement(x)
 Retrieving stuff using the [Rest API](https://www.uniprot.org/help/api_queries) provided by Uniprot:
 
 ```sh
-wget -qO- 'https://www.uniprot.org/uniprot/?query=reviewed:yes+AND+organism:9606&format=tab&columns=id,entry name,reviewed,protein names,genes,length,genes(PREFERRED),keywords,database(RefSeq),comment(FUNCTION),comment(MISCELLANEOUS),feature(COILED COIL),feature(COMPOSITIONAL BIAS),feature(DOMAIN EXTENT),feature(MOTIF),feature(REGION),feature(REPEAT),feature(ZINC FINGER)' > uniprot.tab
+wget -qO- "https://rest.uniprot.org/uniprotkb/stream?compressed=true&fields=accession%2Creviewed%2Cprotein_existence%2Cid%2Cprotein_name%2Cgene_primary%2Corganism_name%2Clength%2Csequence&format=tsv&query=%28%28organism_id%3A9606%29%29" | gunzip > scripts/iupred.protein_sequences.txt'
 ```
 
-[Full list of available columns](https://www.uniprot.org/help/uniprotkb_column_names).
+[Multiple fields](https://www.uniprot.org/help/return_fields) can be retrieved, also from [external references](https://www.uniprot.org/help/return_fields_databases).
+
+See API URL generated in here: https://www.uniprot.org/uniprotkb?query=(organism_id:9606). The interesting thing of using this API call is that length of the results is not limited and not paginated, which complicates retrieving eg. whole human set of proteins.
 
 ## Calculate best primers using melting temperature
 
