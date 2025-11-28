@@ -396,3 +396,45 @@ ratio of the largest library size to the smallest is not more than about 3-fold.
 In the limma-trend approach, the counts are converted to logCPM values using edgeR’s cpm function
 ```
 
+Here's an example, in this case **using the limma-voom approach**:
+```R
+library(GEOquery)
+library(limma)
+library(edgeR)
+
+##
+## Download GEO Series
+##
+gse_id <- "GSE151666"
+gse <- getGEO(gse_id, GSEMatrix = TRUE)
+
+exprSet <- gse[[1]]  # Usually the first element
+samplesheet <- pData(exprSet)
+#expr_data <- exprs(exprSet)   # expresion matrix is not available for this dataset. Instead, they provide a supplemental table
+download.file("https://ftp.ncbi.nlm.nih.gov/geo/series/GSE151nnn/GSE151666/suppl/GSE151666%5Fcervix%5Finstitute%5F68%5Ffpkm.tsv.gz",
+              destfile=x <- tempfile(fileext=".tsv.gz"))
+expr_data <- read.delim(gzfile(x))
+
+ann_genes <- expr_data[, grepl("^gene", colnames(expr_data))]
+expr_data <- as.matrix(expr_data[, !grepl("^gene", colnames(expr_data))])
+rownames(expr_data) <- ann_genes$gene_id
+colnames(expr_data) <- samplesheet$title[sapply(colnames(expr_data), grep, samplesheet$supplementary_file_1)]
+
+##
+## DGE analysis with limma+voom (we start with FPKM values)
+##
+condition <- factor(samplesheet$`hpv genotype:ch1`, levels=unique(c("none", sort(samplesheet$`hpv genotype:ch1`))))
+design <- model.matrix(~ condition)
+
+log_expr <- log2(expr_data + 1)
+
+dge <- DGEList(counts=expr_data)
+dge <- calcNormFactors(dge)
+v <- voom(dge, design, plot=TRUE)
+
+fit <- lmFit(v, design)
+fit <- eBayes(fit)
+
+top_genes <- topTable(fit, coef="conditionHPV16", number=Inf)
+table(top_genes$adj.P.Val < .05)
+```
