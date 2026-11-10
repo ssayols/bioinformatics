@@ -57,6 +57,7 @@
    * [Download a dataset from Gene Expression Atlas](#download-a-dataset-from-gene-expression-atlas)
    * [Get the genomic sequence of a region and plot its nucleotide content](#get-the-genomic-sequence-of-a-region-and-plot-its-nucleotide-content)
    * [Gene set enrichment analysis](#gene-set-enrichment-analysis)
+      * [fgsea](#fgsea)
       * [GSEA of Biological Processes](#gsea-of-biological-processes)
       * [GSEA of Biological Processes (a parallel version)](#gsea-of-biological-processes-a-parallel-version)
       * [GSEA of KEGG or custom db](#gsea-of-kegg-or-custom-db)
