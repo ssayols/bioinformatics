@@ -1614,6 +1614,58 @@ This code uses the ''BSgenome'' package from ''bioconductor'' and calculates de 
 
 ### Gene set enrichment analysis
 
+#### FGSEA
+
+Fast version of the original GSEA analysis. In this case, we don't use the list of significant DE genes for an overrepresentation analysis (hypergeometric test), but rank all genes tested and do the GSEA analysis:
+
+```R
+library(DESeq2)
+library(fgsea)
+
+res <- results(dds, contrast = c("condition", "treated", "control")) |> as.data.frame()
+# or, better for ranking, with shrinkage (see notes below)
+
+res$gene <- rownames(res)
+
+  # which pathways are enriched
+  #ranks <- sign(res$log2FoldChange) * -log10(pmax(res$pvalue, 1e-10))
+  ranks <- res$log2FoldChange / res$lfcSE  # Wald stat, best for GSEA
+  names(ranks) <- res$gene
+  ranks <- ranks[is.finite(ranks) & !is.na(names(ranks))]
+  ranks <- sort(ranks, decreasing=TRUE)
+  
+  res.gsea <- Map(collection=c("H", "C2"), subcollection=c("", "CP:REACTOME"), f=function(collection, subcollection) {
+    cat("Running GSEA for collection:", collection, "subcollection:", subcollection, "\n")
+    if(subcollection != "") {
+      hallmark <- msigdbr(species="Homo sapiens", collection=collection, subcollection=subcollection)
+    } else {
+      hallmark <- msigdbr(species="Homo sapiens", collection=collection)
+    }
+    pathways <- split(hallmark$gene_symbol, hallmark$gs_name)
+    fg <- fgsea(pathways=pathways, stats=ranks, minSize=15, maxSize=500) |> arrange(padj)
+  })
+  
+  # plot singificant pathways
+  Map(res.gsea, pathway=c("HALLMARKS", "CP:REACTOME"), f=function(fgsea_res, pathway) {
+    plot_gsea <- bind_rows(fgsea_res |> filter(NES > 0 & padj < 0.2) |> slice_max(NES, n = 10),
+                           fgsea_res |> filter(NES < 0 & padj < 0.2) |> slice_min(NES, n = 10)) |>
+      mutate(pathway=tolower(gsub("^(HALLMARK_|REACTOME_)", "", pathway)),
+             pathway=gsub("_", " ", pathway),
+             pathway=stringr::str_wrap(pathway, width=40),
+             pathway=forcats::fct_reorder(pathway, NES, .desc=TRUE),
+             enriched_in=ifelse(NES > 0, "DR3+", "DR3-"))
+    
+    ggplot(plot_gsea, aes(x=NES, y=pathway, fill=enriched_in)) +
+           geom_col(width=0.75) +
+           geom_vline(xintercept=0, color="grey40", linewidth=0.4) +
+           scale_fill_manual( values=c("DR3+"="#D55E00", "DR3-"="#0072B2")) +
+           labs(x="Normalized enrichment score (NES)", y=NULL, fill=NULL,
+                title=paste(pathway, paste("pathway enrichment in DR3+ vs DR3- ", cell.type, " cells"))) +
+           theme_classic(base_size=12) +
+           theme(legend.position="top", axis.text.y=element_text(size=10))
+  })
+```
+
 #### GSEA of Biological Processes
 
 This code calculates for enrichment in biological processes from Gene Ontology, using the ''org.Hs.eg.db'' and ''GOstats'' packages from ''bioconductor'':
